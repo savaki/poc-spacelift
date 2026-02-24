@@ -7,6 +7,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@0.378.0/font/lucide.css">
     <link rel="stylesheet" href="/public/style.css">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
 </head>
 <body>
     <header class="app-header">
@@ -35,6 +37,109 @@
         if ((path === '/' && loc === '/') || (path !== '/' && loc.startsWith(path))) {
             link.classList.add('active');
         }
+    });
+
+    document.querySelectorAll('[data-map-zipcodes]').forEach(function(el) {
+        var token = el.getAttribute('data-map-token');
+        if (!token || typeof mapboxgl === 'undefined') return;
+        mapboxgl.accessToken = token;
+        var chipsContainer = el.closest('form') ? el.closest('form').querySelector('[data-zip-chips]') : null;
+        var map = new mapboxgl.Map({ container: el, style: 'mapbox://styles/mapbox/light-v11', center: [-98.5795, 39.8283], zoom: 3.5 });
+        var zipBoundaries = {};
+        map.on('load', function() {
+            map.addSource('zip-boundaries', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            map.addLayer({ id: 'zip-fill', type: 'fill', source: 'zip-boundaries', paint: { 'fill-color': '#FC4C4C', 'fill-opacity': 0.3 } });
+            map.addLayer({ id: 'zip-outline', type: 'line', source: 'zip-boundaries', paint: { 'line-color': '#FC4C4C', 'line-width': 2 } });
+            map.addLayer({ id: 'zip-labels', type: 'symbol', source: 'zip-boundaries', layout: { 'text-field': ['get', 'zip'], 'text-size': 14, 'text-anchor': 'center' }, paint: { 'text-color': '#FC4C4C', 'text-halo-color': '#fff', 'text-halo-width': 2 } });
+            syncZips();
+        });
+        function updateSource() {
+            var src = map.getSource('zip-boundaries');
+            if (src) src.setData({ type: 'FeatureCollection', features: Object.values(zipBoundaries) });
+        }
+        function fitBounds() {
+            var feats = Object.values(zipBoundaries);
+            if (!feats.length) return;
+            var bounds = new mapboxgl.LngLatBounds();
+            feats.forEach(function(f) {
+                var g = f.geometry;
+                if (g.type === 'Polygon') g.coordinates[0].forEach(function(c) { bounds.extend(c); });
+                else if (g.type === 'MultiPolygon') g.coordinates.forEach(function(p) { p[0].forEach(function(c) { bounds.extend(c); }); });
+            });
+            if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 40, maxZoom: 12, animate: false });
+        }
+        function fetchAndAdd(zip) {
+            if (zipBoundaries[zip]) return;
+            fetch("https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2023/MapServer/2/query?where=ZCTA5='" + zip + "'&outFields=*&outSR=4326&f=geojson")
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.features && data.features.length > 0) {
+                        var feat = data.features[0];
+                        feat.properties = Object.assign({}, feat.properties, { zip: zip });
+                        zipBoundaries[zip] = feat;
+                        updateSource(); fitBounds();
+                    }
+                });
+        }
+        function getChipZips() {
+            if (!chipsContainer) return [];
+            var zips = [];
+            chipsContainer.querySelectorAll('.ob-chip').forEach(function(chip) {
+                var t = chip.childNodes[0].textContent.trim();
+                if (t) zips.push(t);
+            });
+            return zips;
+        }
+        function syncZips() {
+            var current = getChipZips();
+            Object.keys(zipBoundaries).forEach(function(z) { if (current.indexOf(z) === -1) delete zipBoundaries[z]; });
+            current.forEach(fetchAndAdd);
+            updateSource();
+            if (Object.keys(zipBoundaries).length > 0) fitBounds();
+        }
+        if (chipsContainer) {
+            var observer = new MutationObserver(function() { syncZips(); });
+            observer.observe(chipsContainer, { childList: true, subtree: true });
+        }
+    });
+
+    document.querySelectorAll('#org-service-map').forEach(function(el) {
+        var token = el.getAttribute('data-map-token');
+        if (!token || typeof mapboxgl === 'undefined') return;
+        mapboxgl.accessToken = token;
+        var dataEl = document.getElementById('org-zip-data');
+        if (!dataEl) return;
+        var zips = [];
+        dataEl.querySelectorAll('[data-zip]').forEach(function(s) { zips.push(s.dataset.zip); });
+        if (!zips.length) return;
+        var map = new mapboxgl.Map({ container: el, style: 'mapbox://styles/mapbox/light-v11', center: [-98.5795, 39.8283], zoom: 3.5 });
+        var zipBoundaries = {};
+        map.on('load', function() {
+            map.addSource('zip-boundaries', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            map.addLayer({ id: 'zip-fill', type: 'fill', source: 'zip-boundaries', paint: { 'fill-color': '#FC4C4C', 'fill-opacity': 0.3 } });
+            map.addLayer({ id: 'zip-outline', type: 'line', source: 'zip-boundaries', paint: { 'line-color': '#FC4C4C', 'line-width': 2 } });
+            map.addLayer({ id: 'zip-labels', type: 'symbol', source: 'zip-boundaries', layout: { 'text-field': ['get', 'zip'], 'text-size': 14, 'text-anchor': 'center' }, paint: { 'text-color': '#FC4C4C', 'text-halo-color': '#fff', 'text-halo-width': 2 } });
+            zips.forEach(function(zip) {
+                fetch("https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2023/MapServer/2/query?where=ZCTA5='" + zip + "'&outFields=*&outSR=4326&f=geojson")
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.features && data.features.length > 0) {
+                            var feat = data.features[0];
+                            feat.properties = Object.assign({}, feat.properties, { zip: zip });
+                            zipBoundaries[zip] = feat;
+                            var src = map.getSource('zip-boundaries');
+                            if (src) src.setData({ type: 'FeatureCollection', features: Object.values(zipBoundaries) });
+                            var bounds = new mapboxgl.LngLatBounds();
+                            Object.values(zipBoundaries).forEach(function(f) {
+                                var g = f.geometry;
+                                if (g.type === 'Polygon') g.coordinates[0].forEach(function(c) { bounds.extend(c); });
+                                else if (g.type === 'MultiPolygon') g.coordinates.forEach(function(p) { p[0].forEach(function(c) { bounds.extend(c); }); });
+                            });
+                            if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 40, maxZoom: 12, animate: false });
+                        }
+                    });
+            });
+        });
     });
     </script>
 </body>

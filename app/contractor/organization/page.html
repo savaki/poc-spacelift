@@ -7,8 +7,11 @@ title: Organization Profile
 
 <div class="card">
     <h3 class="card-title">Service Area</h3>
-    <div class="map-placeholder">
-        <p>No service area zip codes configured</p>
+    <div class="map-container" id="org-service-map" data-map-token="{{ .secrets.mapbox_token }}" style="height:350px"></div>
+    <div id="org-zip-data" style="display:none">
+        <span data-zip="90210"></span>
+        <span data-zip="90211"></span>
+        <span data-zip="90212"></span>
     </div>
 </div>
 

@@ -5,6 +5,11 @@ title: My Projects
     <h1>My Projects</h1>
 </div>
 
+<div class="map-container" data-map-projects data-map-token="{{ .secrets.mapbox_token }}">
+    <span data-map-pin hidden data-address="123 Oak Avenue, Austin, TX 78701" data-label="Jane Smith" data-href="/projects/1"></span>
+    <span data-map-pin hidden data-address="456 Elm Street, Austin, TX 78704" data-label="Robert Johnson" data-href="/projects/2"></span>
+</div>
+
 <div class="card">
     <div class="toolbar">
         <input type="text" class="search-input" placeholder="Search by homeowner or address..." id="search-projects">

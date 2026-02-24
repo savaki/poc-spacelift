@@ -5,6 +5,7 @@ title: Service Area
 <h2 class="ob-title">Service area</h2>
 
 <form class="ob-form" id="onboarding-zipcode">
+    <div class="map-container" data-map-zipcodes data-map-token="{{ .secrets.mapbox_token }}" style="height:250px;margin-bottom:0.875rem;margin-top:0"></div>
     <div class="ob-field">
         <label>Add Zip Codes</label>
         <div class="ob-zip-row">
@@ -13,7 +14,7 @@ title: Service Area
         </div>
     </div>
 
-    <div class="ob-chips" id="zip-chips">
+    <div class="ob-chips" id="zip-chips" data-zip-chips>
         <span class="ob-chip">90210 <button type="button" class="zip-remove">&times;</button></span>
         <span class="ob-chip">90211 <button type="button" class="zip-remove">&times;</button></span>
         <span class="ob-chip">90212 <button type="button" class="zip-remove">&times;</button></span>

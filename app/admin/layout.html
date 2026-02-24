@@ -7,6 +7,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@0.378.0/font/lucide.css">
     <link rel="stylesheet" href="/public/style.css">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
@@ -36,6 +38,73 @@
         const loc = window.location.pathname;
         if ((path === '/' && loc === '/') || (path !== '/' && loc.startsWith(path))) {
             link.classList.add('active');
+        }
+    });
+
+    function geocodeWithFallback(address, token) {
+        return fetch('https://api.mapbox.com/geocoding/v5/mapbox.places/' + encodeURIComponent(address) + '.json?access_token=' + token)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.features && data.features.length > 0 && data.features[0].relevance >= 0.9) {
+                    return data.features[0].center;
+                }
+                var parts = address.split(',');
+                if (parts.length > 1) {
+                    var fallback = parts.slice(1).join(',').trim();
+                    return fetch('https://api.mapbox.com/geocoding/v5/mapbox.places/' + encodeURIComponent(fallback) + '.json?access_token=' + token)
+                        .then(function(r) { return r.json(); })
+                        .then(function(d2) {
+                            if (d2.features && d2.features.length > 0) return d2.features[0].center;
+                            return data.features && data.features.length > 0 ? data.features[0].center : null;
+                        });
+                }
+                return data.features && data.features.length > 0 ? data.features[0].center : null;
+            });
+    }
+
+    document.querySelectorAll('[data-map-address]').forEach(function(el) {
+        var token = el.getAttribute('data-map-token');
+        if (!token || typeof mapboxgl === 'undefined') return;
+        mapboxgl.accessToken = token;
+        var street = el.getAttribute('data-street') || '';
+        var city = el.getAttribute('data-city') || '';
+        var state = el.getAttribute('data-state') || '';
+        var zip = el.getAttribute('data-zip') || '';
+        var address = [street, city, state, zip].filter(Boolean).join(', ');
+        if (!address) return;
+        geocodeWithFallback(address, token).then(function(coords) {
+            if (!coords) return;
+            var map = new mapboxgl.Map({ container: el, style: 'mapbox://styles/mapbox/light-v11', center: coords, zoom: 14 });
+            new mapboxgl.Marker({ color: '#FC4C4C' }).setLngLat(coords).addTo(map);
+        });
+    });
+
+    document.querySelectorAll('[data-map-projects]').forEach(function(el) {
+        var token = el.getAttribute('data-map-token');
+        if (!token || typeof mapboxgl === 'undefined') return;
+        mapboxgl.accessToken = token;
+        var pins = el.querySelectorAll('[data-map-pin]');
+        if (!pins.length) { el.style.display = 'none'; return; }
+        var allCoords = [], pinData = [], pending = pins.length;
+        pins.forEach(function(pin) {
+            var addr = pin.getAttribute('data-address') || '';
+            var label = pin.getAttribute('data-label') || '';
+            var href = pin.getAttribute('data-href') || '';
+            if (!addr) { pending--; return; }
+            geocodeWithFallback(addr, token).then(function(coords) {
+                if (coords) { allCoords.push(coords); pinData.push({ coords: coords, label: label, addr: addr, href: href }); }
+                pending--;
+                if (pending <= 0 && allCoords.length > 0) buildMap();
+            });
+        });
+        function buildMap() {
+            var bounds = new mapboxgl.LngLatBounds();
+            allCoords.forEach(function(c) { bounds.extend(c); });
+            var map = new mapboxgl.Map({ container: el, style: 'mapbox://styles/mapbox/light-v11', bounds: bounds, fitBoundsOptions: { padding: 50, maxZoom: 14 } });
+            pinData.forEach(function(p) {
+                var popup = new mapboxgl.Popup({ offset: 25 }).setHTML('<strong>' + p.label + '</strong><br>' + p.addr);
+                new mapboxgl.Marker({ color: '#FC4C4C' }).setLngLat(p.coords).setPopup(popup).addTo(map);
+            });
         }
     });
     </script>
