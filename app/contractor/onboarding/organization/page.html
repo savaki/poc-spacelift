@@ -1,0 +1,43 @@
+---
+title: Organization Setup
+---
+<div class="ob-step">Step 2 of 4</div>
+<h2 class="ob-title">Set up your organization</h2>
+
+<form class="ob-form" id="onboarding-org">
+    <div class="ob-field">
+        <label>Phone</label>
+        <input type="tel" name="phone" class="ob-input" placeholder="(555) 123-4567">
+    </div>
+    <div class="ob-field">
+        <label>Email</label>
+        <input type="email" name="email" class="ob-input" placeholder="contact@company.com">
+    </div>
+    <div class="ob-field">
+        <label>Website</label>
+        <input type="url" name="website" class="ob-input" placeholder="https://yourcompany.com">
+    </div>
+    <div class="ob-row">
+        <div class="ob-field" style="flex:1">
+            <label>State</label>
+            <input type="text" class="ob-input" placeholder="CA">
+        </div>
+        <div class="ob-field" style="flex:2">
+            <label>City</label>
+            <input type="text" class="ob-input" placeholder="Los Angeles">
+        </div>
+    </div>
+    <div class="ob-field">
+        <label>License Number <span style="color:#9ca3af;font-weight:400">(optional)</span></label>
+        <input type="text" class="ob-input" placeholder="License #">
+    </div>
+    <div class="ob-error" id="ob-error" style="display:none"></div>
+    <button type="submit" class="ob-btn">Continue</button>
+</form>
+
+<script>
+document.getElementById('onboarding-org').addEventListener('submit', function(e) {
+    e.preventDefault();
+    window.location.href = '/onboarding/service-area';
+});
+</script>

@@ -1,0 +1,67 @@
+---
+title: Dashboard
+---
+<div class="page-header">
+    <div>
+        <h1>Good morning</h1>
+        <p class="subtitle">Your project queue and upcoming consultations</p>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid stats-grid-3">
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-blue">My Projects</p>
+            <p class="stat-value">0</p>
+        </div>
+        <div class="stat-icon stat-icon-blue"><i class="icon-clipboard-list"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-purple">Active Referrals</p>
+            <p class="stat-value">0</p>
+        </div>
+        <div class="stat-icon stat-icon-purple"><i class="icon-send"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-green">Connections Made</p>
+            <p class="stat-value">0</p>
+        </div>
+        <div class="stat-icon stat-icon-green"><i class="icon-circle-check"></i></div>
+    </div>
+</div>
+
+<!-- Three Column Pipeline -->
+<div class="pipeline-grid">
+    <div class="card pipeline-card">
+        <div class="card-header">
+            <h3 class="card-title accent-blue">Consultations</h3>
+        </div>
+        <div class="pipeline-section">
+            <p class="section-label">Upcoming</p>
+            <p class="empty-state-sm">No upcoming consultations</p>
+        </div>
+        <div class="pipeline-section">
+            <p class="section-label section-label-warning">Needs Attention</p>
+            <p class="empty-state-sm">All caught up</p>
+        </div>
+    </div>
+
+    <div class="card pipeline-card">
+        <div class="card-header">
+            <h3 class="card-title accent-purple">Active Referrals</h3>
+            <a href="/referrals" class="link-sm">View all &rarr;</a>
+        </div>
+        <p class="empty-state-sm">No active referrals</p>
+    </div>
+
+    <div class="card pipeline-card">
+        <div class="card-header">
+            <h3 class="card-title accent-green">Professionals</h3>
+            <a href="/professionals" class="link-sm">Browse &rarr;</a>
+        </div>
+        <p class="empty-state-sm">Browse verified professionals to refer projects.</p>
+    </div>
+</div>

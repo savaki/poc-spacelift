@@ -1,0 +1,69 @@
+---
+title: Organization Detail
+---
+<a href="/professionals" class="back-link">&larr; Back to Professionals</a>
+
+<div class="page-header-actions">
+    <div>
+        <h1>Organization Detail</h1>
+        <p class="subtitle">ID: {{ .params.id }}</p>
+    </div>
+    <div style="display:flex;gap:0.5rem">
+        <button class="btn btn-green btn-sm" onclick="approveOrg()">Approve</button>
+    </div>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="detail-grid">
+    <div class="card">
+        <div class="card-title accent-blue">Company Info</div>
+        <dl class="detail-list">
+            <dt>ID</dt><dd>{{ .params.id }}</dd>
+            <dt>Name</dt><dd>-</dd>
+            <dt>Type</dt><dd>-</dd>
+            <dt>Verification</dt><dd><span class="status-badge">invited</span></dd>
+        </dl>
+    </div>
+    <div class="card">
+        <div class="card-title accent-green">Contact</div>
+        <dl class="detail-list">
+            <dt>Email</dt><dd>-</dd>
+            <dt>Phone</dt><dd>-</dd>
+            <dt>Website</dt><dd>-</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">Team Members</div>
+    <table class="data-table">
+        <thead>
+            <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="4" class="empty-state">No team members found.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+const orgId = '{{ .params.id }}';
+
+async function approveOrg() {
+    try {
+        const resp = await fetch('/api/organization/' + orgId + ':approve_organization', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+        });
+        const result = await resp.json();
+        document.getElementById('alert-container').innerHTML = resp.ok
+            ? '<div class="alert alert-success">Organization approved!</div>'
+            : '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+    } catch(e) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">' + e.message + '</div>';
+    }
+}
+</script>

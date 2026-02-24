@@ -1,0 +1,123 @@
+---
+title: Dashboard
+---
+<div class="page-header">
+    <h1>Dashboard</h1>
+</div>
+
+<!-- Stats + Chart Card -->
+<div class="card">
+    <div class="dashboard-overview">
+        <div class="dashboard-stats">
+            <div class="stat-card-compact">
+                <p class="stat-label stat-label-blue">Projects</p>
+                <p class="stat-value">0</p>
+            </div>
+            <div class="stat-card-compact">
+                <p class="stat-label stat-label-green">Consultations Scheduled</p>
+                <p class="stat-value">0</p>
+            </div>
+            <div class="stat-card-compact">
+                <p class="stat-label stat-label-purple">In-Flight Referrals</p>
+                <p class="stat-value">0</p>
+            </div>
+        </div>
+        <div class="chart-area">
+            <div class="chart-header">
+                <p class="chart-title">Pipeline Overview</p>
+                <div class="chart-legend">
+                    <span class="legend-item"><span class="legend-dot dot-blue"></span> Projects</span>
+                    <span class="legend-item"><span class="legend-dot dot-red"></span> Referrals</span>
+                </div>
+            </div>
+            <div style="position:relative;height:220px"><canvas id="activity-chart"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var el = document.getElementById('activity-chart');
+    if (!el) return;
+    new Chart(el, {
+        type: 'bar',
+        data: {
+            labels: ['New', 'Consultation', 'Complete', 'Closed', 'Sent', 'Accepted', 'Scheduled', 'Connected', 'Declined'],
+            datasets: [{
+                label: 'Count',
+                data: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                backgroundColor: [
+                    '#3b86e1', '#3b86e1', '#3b86e1', '#3b86e1',
+                    '#fc4c4c', '#fc4c4c', '#fc4c4c', '#fc4c4c', '#fc4c4c'
+                ],
+                borderRadius: 6,
+                barThickness: 28
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { stepSize: 1 } },
+                x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+            }
+        }
+    });
+})();
+</script>
+
+<!-- Ready for Referrals -->
+<div class="card">
+    <h3 class="card-title accent-green">Ready for Referrals</h3>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Homeowner</th>
+                <th>Address</th>
+                <th>Type</th>
+                <th>Budget</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="4" class="empty-state">No projects ready for referral</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Upcoming Consultations -->
+<div class="card">
+    <h3 class="card-title accent-blue">Upcoming Consultations</h3>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Homeowner</th>
+                <th>Address</th>
+                <th>Status</th>
+                <th>Consultant</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="4" class="empty-state">No consultations scheduled yet</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- In-Flight Referrals -->
+<div class="card">
+    <h3 class="card-title accent-purple">In-Flight Referrals</h3>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Contractor</th>
+                <th>Project</th>
+                <th>Status</th>
+                <th>Sent</th>
+                <th>Sender</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="5" class="empty-state">No referrals in progress</td></tr>
+        </tbody>
+    </table>
+</div>

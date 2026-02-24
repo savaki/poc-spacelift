@@ -1,0 +1,161 @@
+record {
+  project_id: String
+  organization_id: String
+  sender_id: String
+  status: String = "sent"
+  consultant_notes: String = ""
+  contractor_notes: String = ""
+  meeting_date: String = ""
+  meeting_notes: String = ""
+}
+
+validate project_required {
+  params.project_id != ""
+}
+
+validate org_required {
+  params.organization_id != ""
+}
+
+validate can_accept {
+  record.status == "sent" || record.status == "viewed"
+}
+
+validate can_decline {
+  record.status == "sent" || record.status == "viewed"
+}
+
+validate is_sent {
+  record.status == "sent"
+}
+
+validate is_accepted {
+  record.status == "accepted"
+}
+
+validate is_scheduled {
+  record.status == "scheduled"
+}
+
+event referral_sent {
+  project_id: String
+  organization_id: String
+  sender_id: String
+  status: String
+  consultant_notes: String
+  contractor_notes: String
+  meeting_date: String
+  meeting_notes: String
+}
+
+event referral_viewed {
+  status: String
+}
+
+event referral_accepted {
+  status: String
+  contractor_notes: String
+}
+
+event referral_declined {
+  status: String
+  contractor_notes: String
+}
+
+event meeting_scheduled {
+  status: String
+  meeting_date: String
+  meeting_notes: String
+}
+
+event connection_confirmed {
+  status: String
+}
+
+event contractor_notes_saved {
+  contractor_notes: String
+}
+
+@create
+action send_referral {
+  project_id: String
+  organization_id: String
+  sender_id: String
+  consultant_notes: String = ""
+  validate project_required
+  validate org_required
+  apply {
+    emit referral_sent {
+      project_id: params.project_id
+      organization_id: params.organization_id
+      sender_id: params.sender_id
+      status: "sent"
+      consultant_notes: params.consultant_notes
+      contractor_notes: ""
+      meeting_date: ""
+      meeting_notes: ""
+    }
+  }
+}
+
+action mark_viewed {
+  validate is_sent
+  apply {
+    emit referral_viewed {
+      status: "viewed"
+    }
+  }
+}
+
+action accept_referral {
+  contractor_notes: String = ""
+  validate can_accept
+  apply {
+    emit referral_accepted {
+      status: "accepted"
+      contractor_notes: params.contractor_notes
+    }
+  }
+}
+
+action decline_referral {
+  contractor_notes: String = ""
+  validate can_decline
+  apply {
+    emit referral_declined {
+      status: "declined"
+      contractor_notes: params.contractor_notes
+    }
+  }
+}
+
+action schedule_meeting {
+  meeting_date: String
+  meeting_notes: String = ""
+  validate is_accepted
+  apply {
+    emit meeting_scheduled {
+      status: "scheduled"
+      meeting_date: params.meeting_date
+      meeting_notes: params.meeting_notes
+    }
+  }
+}
+
+action confirm_connection {
+  validate is_scheduled
+  apply {
+    emit connection_confirmed {
+      status: "connected"
+    }
+  }
+}
+
+action save_contractor_notes {
+  contractor_notes: String
+  apply {
+    emit contractor_notes_saved {
+      contractor_notes: params.contractor_notes
+    }
+  }
+}

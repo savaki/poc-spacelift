@@ -1,0 +1,67 @@
+---
+title: My Referrals
+---
+<div class="page-header">
+    <h1>My Referrals</h1>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid stats-grid-4">
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-blue">Total Sent</p>
+            <p class="stat-value">0</p>
+        </div>
+        <div class="stat-icon stat-icon-blue"><i class="icon-send"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-green">Accepted</p>
+            <p class="stat-value">0</p>
+        </div>
+        <div class="stat-icon stat-icon-green"><i class="icon-circle-check"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-purple">Intro Scheduled</p>
+            <p class="stat-value">0</p>
+        </div>
+        <div class="stat-icon stat-icon-purple"><i class="icon-calendar"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-green">Connected</p>
+            <p class="stat-value">0</p>
+        </div>
+        <div class="stat-icon stat-icon-green"><i class="icon-handshake"></i></div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <input type="text" class="search-input" placeholder="Search by contractor or project..." id="search-referrals">
+        <select class="filter-select" id="filter-status">
+            <option value="">All Statuses</option>
+            <option value="sent">Sent</option>
+            <option value="viewed">Viewed</option>
+            <option value="accepted">Accepted</option>
+            <option value="declined">Declined</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="connected">Connected</option>
+        </select>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Contractor</th>
+                <th>Project</th>
+                <th>Status</th>
+                <th>Sent</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="5" class="empty-state">No referrals sent yet</td></tr>
+        </tbody>
+    </table>
+</div>

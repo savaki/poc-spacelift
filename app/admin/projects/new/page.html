@@ -1,0 +1,107 @@
+---
+title: New Project
+---
+<div id="alert-container"></div>
+
+<form id="create-project-form">
+    <div class="modal-form-header">
+        <h3>New Project</h3>
+        <p>Add a new homeowner project to the pipeline</p>
+    </div>
+    <div class="modal-form-body">
+        <div class="form-section">Homeowner</div>
+        <div class="form-field">
+            <label class="form-label">Full Name</label>
+            <input type="text" name="homeowner_name" class="form-input" placeholder="Jane Smith" required />
+        </div>
+        <div class="form-row">
+            <div class="form-field">
+                <label class="form-label">Email <span class="optional">(optional)</span></label>
+                <input type="email" name="homeowner_email" class="form-input" placeholder="jane@example.com" />
+            </div>
+            <div class="form-field">
+                <label class="form-label">Phone <span class="optional">(optional)</span></label>
+                <input type="tel" name="homeowner_phone" class="form-input" placeholder="(555) 123-4567" />
+            </div>
+        </div>
+
+        <div class="form-section">Property</div>
+        <div class="form-field">
+            <label class="form-label">Street Address</label>
+            <input type="text" name="address_street" class="form-input" placeholder="123 Oak Avenue" required />
+        </div>
+        <div class="form-row">
+            <div class="form-field" style="flex:2">
+                <label class="form-label">City</label>
+                <input type="text" name="address_city" class="form-input" placeholder="Austin" required />
+            </div>
+            <div class="form-field">
+                <label class="form-label">State</label>
+                <input type="text" name="address_state" class="form-input" placeholder="TX" required />
+            </div>
+            <div class="form-field">
+                <label class="form-label">ZIP</label>
+                <input type="text" name="address_zip" class="form-input" placeholder="78701" required />
+            </div>
+        </div>
+
+        <div class="form-section">Project Details</div>
+        <div class="form-field">
+            <label class="form-label">Project Type</label>
+            <select name="project_type" class="filter-select" required>
+                <option value="">Select type...</option>
+                <option value="kitchen">Kitchen</option>
+                <option value="bathroom">Bathroom</option>
+                <option value="addition">Addition</option>
+                <option value="whole_home">Whole Home</option>
+                <option value="outdoor">Outdoor</option>
+                <option value="basement">Basement</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <div class="form-field">
+                <label class="form-label">Budget Min <span class="optional">(optional)</span></label>
+                <input type="number" name="budget_min" class="form-input" placeholder="10,000" />
+            </div>
+            <div class="form-field">
+                <label class="form-label">Budget Max <span class="optional">(optional)</span></label>
+                <input type="number" name="budget_max" class="form-input" placeholder="50,000" />
+            </div>
+        </div>
+    </div>
+    <div class="modal-form-footer">
+        <a href="/projects" class="btn btn-outline">Cancel</a>
+        <button type="submit" class="btn">Create Project</button>
+    </div>
+</form>
+
+<script>
+document.getElementById('create-project-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    data.budget_min = parseInt(data.budget_min) || 0;
+    data.budget_max = parseInt(data.budget_max) || 0;
+
+    try {
+        const resp = await fetch('/api/project:create_project', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            document.getElementById('alert-container').innerHTML =
+                '<div class="alert alert-success">Project created! ID: ' + result.record.id + '</div>';
+            form.reset();
+        } else {
+            document.getElementById('alert-container').innerHTML =
+                '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+        }
+    } catch (err) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">Network error: ' + err.message + '</div>';
+    }
+});
+</script>

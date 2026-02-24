@@ -1,0 +1,35 @@
+---
+title: Referrals
+---
+<div class="page-header">
+    <h1>Incoming Referrals</h1>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <input type="text" class="search-input" placeholder="Search referrals..." id="search-referrals">
+        <select class="filter-select" id="filter-status">
+            <option value="">All Statuses</option>
+            <option value="sent">Sent</option>
+            <option value="viewed">Viewed</option>
+            <option value="accepted">Accepted</option>
+            <option value="declined">Declined</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="connected">Connected</option>
+        </select>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Project</th>
+                <th>From</th>
+                <th>Status</th>
+                <th>Notes</th>
+                <th>Received</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="5" class="empty-state">No referrals yet</td></tr>
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,104 @@
+record {
+  name: String
+  organization_type: String = "general_contractor"
+  email: String = ""
+  phone: String = ""
+  website: String = ""
+  verification_status: String = "invited"
+  description: String = ""
+}
+
+validate name_not_empty {
+  params.name != ""
+}
+
+validate not_already_verified {
+  record.verification_status != "verified"
+}
+
+validate is_pending_or_invited {
+  record.verification_status == "pending" || record.verification_status == "invited"
+}
+
+event organization_created {
+  name: String
+  organization_type: String
+  email: String
+  phone: String
+  website: String
+  verification_status: String
+  description: String
+}
+
+event organization_updated {
+  name: String
+  email: String
+  phone: String
+  website: String
+  description: String
+}
+
+event verification_initiated {
+  verification_status: String
+}
+
+event organization_approved {
+  verification_status: String
+}
+
+@create
+action create_organization {
+  name: String
+  organization_type: String = "general_contractor"
+  email: String = ""
+  phone: String = ""
+  website: String = ""
+  description: String = ""
+  validate name_not_empty
+  apply {
+    emit organization_created {
+      name: params.name
+      organization_type: params.organization_type
+      email: params.email
+      phone: params.phone
+      website: params.website
+      verification_status: "invited"
+      description: params.description
+    }
+  }
+}
+
+action update_organization {
+  name: String = ""
+  email: String = ""
+  phone: String = ""
+  website: String = ""
+  description: String = ""
+  apply {
+    emit organization_updated {
+      name: params.name
+      email: params.email
+      phone: params.phone
+      website: params.website
+      description: params.description
+    }
+  }
+}
+
+action initiate_verification {
+  validate not_already_verified
+  apply {
+    emit verification_initiated {
+      verification_status: "pending"
+    }
+  }
+}
+
+action approve_organization {
+  validate is_pending_or_invited
+  apply {
+    emit organization_approved {
+      verification_status: "verified"
+    }
+  }
+}

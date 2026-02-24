@@ -1,0 +1,49 @@
+---
+title: Accept Invitation
+---
+<div class="onboarding-overlay">
+    <div class="onboarding-card">
+        <div style="text-align:center;margin-bottom:1.5rem">
+            <span class="logo" style="font-size:1.5rem;justify-content:center">spacelift</span>
+        </div>
+        <h2>You've been invited!</h2>
+        <p class="subtitle">Accept this invitation to join an organization on Spacelift.</p>
+
+        <div id="alert-container"></div>
+
+        <div style="margin-top:1.5rem">
+            <dl class="detail-list">
+                <dt>Invite Token</dt><dd>{{ .params.token }}</dd>
+            </dl>
+        </div>
+
+        <form id="accept-form" style="margin-top:1.5rem">
+            <div class="form-field">
+                <label class="form-label">Invite ID (from your invite email)</label>
+                <input type="text" class="form-input" name="invite_id" required>
+            </div>
+            <button type="submit" class="btn" style="width:100%;justify-content:center;margin-top:1rem">Accept Invitation</button>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('accept-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    try {
+        const resp = await fetch('/api/invite/' + data.invite_id + ':accept_invite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+        });
+        const result = await resp.json();
+        document.getElementById('alert-container').innerHTML = resp.ok
+            ? '<div class="alert alert-success">Invitation accepted! Welcome to Spacelift.</div>'
+            : '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+    } catch(err) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">' + err.message + '</div>';
+    }
+});
+</script>

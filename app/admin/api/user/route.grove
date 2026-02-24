@@ -1,0 +1,14 @@
+route {
+  POST create_user {
+    data result {
+      invoke user.create_user {
+        email: input.body.email,
+        first_name: input.body.first_name,
+        last_name: input.body.last_name,
+        role: input.body.role,
+        organization_id: input.body.organization_id,
+        phone: input.body.phone
+      }
+    }
+  }
+}

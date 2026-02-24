@@ -1,0 +1,87 @@
+record {
+  email: String
+  first_name: String
+  last_name: String
+  role: String = "contractor"
+  status: String = "active"
+  organization_id: String = ""
+  phone: String = ""
+}
+
+validate email_not_empty {
+  params.email != ""
+}
+
+validate valid_role {
+  params.role == "admin" || params.role == "consultant" || params.role == "contractor"
+}
+
+event user_created {
+  email: String
+  first_name: String
+  last_name: String
+  role: String
+  status: String
+  organization_id: String
+  phone: String
+}
+
+event user_updated {
+  first_name: String
+  last_name: String
+  phone: String
+  email: String
+  organization_id: String
+}
+
+event user_activated {
+  status: String
+}
+
+@create
+action create_user {
+  email: String
+  first_name: String
+  last_name: String
+  role: String = "contractor"
+  organization_id: String = ""
+  phone: String = ""
+  validate email_not_empty
+  validate valid_role
+  apply {
+    emit user_created {
+      email: params.email
+      first_name: params.first_name
+      last_name: params.last_name
+      role: params.role
+      status: "active"
+      organization_id: params.organization_id
+      phone: params.phone
+    }
+  }
+}
+
+action update_user {
+  first_name: String = ""
+  last_name: String = ""
+  phone: String = ""
+  email: String = ""
+  organization_id: String = ""
+  apply {
+    emit user_updated {
+      first_name: params.first_name
+      last_name: params.last_name
+      phone: params.phone
+      email: params.email
+      organization_id: params.organization_id
+    }
+  }
+}
+
+action activate_user {
+  apply {
+    emit user_activated {
+      status: "active"
+    }
+  }
+}

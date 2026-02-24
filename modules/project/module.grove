@@ -1,0 +1,148 @@
+record {
+  status: String = "new"
+  project_type: String
+  homeowner_name: String = ""
+  homeowner_email: String = ""
+  homeowner_phone: String = ""
+  address_street: String = ""
+  address_city: String = ""
+  address_state: String = ""
+  address_zip: String = ""
+  budget_min: Int = 0
+  budget_max: Int = 0
+  consultant_id: String = ""
+  notes: String = ""
+}
+
+validate valid_project_type {
+  params.project_type == "kitchen" || params.project_type == "bathroom" || params.project_type == "addition" || params.project_type == "whole_home" || params.project_type == "outdoor" || params.project_type == "basement" || params.project_type == "other"
+}
+
+event project_created {
+  status: String
+  project_type: String
+  homeowner_name: String
+  homeowner_email: String
+  homeowner_phone: String
+  address_street: String
+  address_city: String
+  address_state: String
+  address_zip: String
+  budget_min: Int
+  budget_max: Int
+  consultant_id: String
+  notes: String
+}
+
+event project_updated {
+  project_type: String
+  homeowner_name: String
+  homeowner_email: String
+  homeowner_phone: String
+  address_street: String
+  address_city: String
+  address_state: String
+  address_zip: String
+  budget_min: Int
+  budget_max: Int
+  notes: String
+}
+
+event consultant_assigned {
+  consultant_id: String
+}
+
+event project_completed {
+  status: String
+}
+
+event project_closed {
+  status: String
+}
+
+@create
+action create_project {
+  project_type: String
+  homeowner_name: String = ""
+  homeowner_email: String = ""
+  homeowner_phone: String = ""
+  address_street: String = ""
+  address_city: String = ""
+  address_state: String = ""
+  address_zip: String = ""
+  budget_min: Int = 0
+  budget_max: Int = 0
+  notes: String = ""
+  validate valid_project_type
+  apply {
+    emit project_created {
+      status: "new"
+      project_type: params.project_type
+      homeowner_name: params.homeowner_name
+      homeowner_email: params.homeowner_email
+      homeowner_phone: params.homeowner_phone
+      address_street: params.address_street
+      address_city: params.address_city
+      address_state: params.address_state
+      address_zip: params.address_zip
+      budget_min: params.budget_min
+      budget_max: params.budget_max
+      consultant_id: ""
+      notes: params.notes
+    }
+  }
+}
+
+action update_project {
+  project_type: String = ""
+  homeowner_name: String = ""
+  homeowner_email: String = ""
+  homeowner_phone: String = ""
+  address_street: String = ""
+  address_city: String = ""
+  address_state: String = ""
+  address_zip: String = ""
+  budget_min: Int = 0
+  budget_max: Int = 0
+  notes: String = ""
+  apply {
+    emit project_updated {
+      project_type: params.project_type
+      homeowner_name: params.homeowner_name
+      homeowner_email: params.homeowner_email
+      homeowner_phone: params.homeowner_phone
+      address_street: params.address_street
+      address_city: params.address_city
+      address_state: params.address_state
+      address_zip: params.address_zip
+      budget_min: params.budget_min
+      budget_max: params.budget_max
+      notes: params.notes
+    }
+  }
+}
+
+action assign_consultant {
+  consultant_id: String
+  apply {
+    emit consultant_assigned {
+      consultant_id: params.consultant_id
+    }
+  }
+}
+
+action mark_project_complete {
+  apply {
+    emit project_completed {
+      status: "project_complete"
+    }
+  }
+}
+
+action close_project {
+  apply {
+    emit project_closed {
+      status: "closed"
+    }
+  }
+}

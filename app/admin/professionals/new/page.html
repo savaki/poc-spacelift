@@ -1,0 +1,86 @@
+---
+title: New Organization
+---
+<a href="/professionals" class="back-link">&larr; Back to Professionals</a>
+
+<div class="page-header">
+    <h1>New Organization</h1>
+    <p class="subtitle">Register a contractor organization</p>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="card" style="max-width: 640px;">
+    <form id="create-org-form">
+        <div class="form-section">Organization Details</div>
+
+        <div class="form-field">
+            <label class="form-label">Organization Name</label>
+            <input type="text" class="form-input" name="name" required>
+        </div>
+
+        <div class="form-field">
+            <label class="form-label">Type</label>
+            <select class="form-input" name="organization_type" required>
+                <option value="general_contractor">General Contractor</option>
+                <option value="specialty_contractor">Specialty Contractor</option>
+                <option value="design_build">Design-Build</option>
+            </select>
+        </div>
+
+        <div class="form-section">Contact</div>
+
+        <div class="form-row">
+            <div class="form-field">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-input" name="email">
+            </div>
+            <div class="form-field">
+                <label class="form-label">Phone</label>
+                <input type="text" class="form-input" name="phone">
+            </div>
+        </div>
+
+        <div class="form-field">
+            <label class="form-label">Website <span class="optional">(optional)</span></label>
+            <input type="url" class="form-input" name="website">
+        </div>
+
+        <div class="form-field">
+            <label class="form-label">Description <span class="optional">(optional)</span></label>
+            <textarea class="form-input" name="description" rows="3"></textarea>
+        </div>
+
+        <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: flex-end;">
+            <a href="/professionals" class="btn btn-outline">Cancel</a>
+            <button type="submit" class="btn">Create Organization</button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('create-org-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    try {
+        const resp = await fetch('/api/organization:create_organization', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            document.getElementById('alert-container').innerHTML =
+                '<div class="alert alert-success">Organization created! ID: ' + result.record.id + '</div>';
+            form.reset();
+        } else {
+            document.getElementById('alert-container').innerHTML =
+                '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+        }
+    } catch (err) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">Network error: ' + err.message + '</div>';
+    }
+});
+</script>

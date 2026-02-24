@@ -1,0 +1,75 @@
+---
+title: Invite User
+---
+<div id="alert-container"></div>
+
+<form id="create-user-form">
+    <div class="modal-form-header">
+        <h3>Invite User</h3>
+        <p>Add a new team member to the platform</p>
+    </div>
+    <div class="modal-form-body">
+        <div class="form-row">
+            <div class="form-field">
+                <label class="form-label">First Name</label>
+                <input type="text" name="first_name" class="form-input" placeholder="Jane" required />
+            </div>
+            <div class="form-field">
+                <label class="form-label">Last Name</label>
+                <input type="text" name="last_name" class="form-input" placeholder="Smith" required />
+            </div>
+        </div>
+        <div class="form-field">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-input" placeholder="jane@spacelift.com" required />
+        </div>
+        <div class="form-row">
+            <div class="form-field">
+                <label class="form-label">Role</label>
+                <select name="role" class="filter-select" required>
+                    <option value="">Select role...</option>
+                    <option value="admin">Admin</option>
+                    <option value="consultant">Consultant</option>
+                    <option value="contractor">Contractor</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label class="form-label">Organization <span class="optional">(optional)</span></label>
+                <select name="organization_id" class="filter-select">
+                    <option value="">None</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="modal-form-footer">
+        <a href="/" class="btn btn-outline">Cancel</a>
+        <button type="submit" class="btn">Send Invite</button>
+    </div>
+</form>
+
+<script>
+document.getElementById('create-user-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    try {
+        const resp = await fetch('/api/user:create_user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            document.getElementById('alert-container').innerHTML =
+                '<div class="alert alert-success">User created! ID: ' + result.record.id + '</div>';
+            form.reset();
+        } else {
+            document.getElementById('alert-container').innerHTML =
+                '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+        }
+    } catch (err) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">Network error: ' + err.message + '</div>';
+    }
+});
+</script>

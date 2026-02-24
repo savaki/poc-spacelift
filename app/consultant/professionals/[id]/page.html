@@ -1,0 +1,34 @@
+---
+title: Organization Detail
+---
+<a href="/professionals" class="back-link">&larr; Back to Professionals</a>
+
+<div class="page-header">
+    <h1>Organization Detail</h1>
+    <p class="subtitle">ID: {{ .params.id }}</p>
+</div>
+
+<div class="detail-grid">
+    <div class="card">
+        <div class="card-title accent-blue">Company Info</div>
+        <dl class="detail-list">
+            <dt>ID</dt><dd>{{ .params.id }}</dd>
+            <dt>Name</dt><dd>-</dd>
+            <dt>Type</dt><dd>-</dd>
+            <dt>Verification</dt><dd><span class="status-badge">-</span></dd>
+        </dl>
+    </div>
+    <div class="card">
+        <div class="card-title accent-green">Contact</div>
+        <dl class="detail-list">
+            <dt>Email</dt><dd>-</dd>
+            <dt>Phone</dt><dd>-</dd>
+            <dt>Website</dt><dd>-</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">Service Area</div>
+    <div class="map-placeholder">Service area map</div>
+</div>

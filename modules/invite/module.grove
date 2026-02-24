@@ -1,0 +1,54 @@
+record {
+  email: String
+  token: String
+  organization_id: String
+  status: String = "pending"
+  invited_by: String
+}
+
+validate email_not_empty {
+  params.email != ""
+}
+
+validate is_pending {
+  record.status == "pending"
+}
+
+event invite_created {
+  email: String
+  token: String
+  organization_id: String
+  status: String
+  invited_by: String
+}
+
+event invite_accepted {
+  status: String
+}
+
+@create
+action create_invite {
+  email: String
+  token: String
+  organization_id: String
+  invited_by: String
+  validate email_not_empty
+  apply {
+    emit invite_created {
+      email: params.email
+      token: params.token
+      organization_id: params.organization_id
+      status: "pending"
+      invited_by: params.invited_by
+    }
+  }
+}
+
+action accept_invite {
+  validate is_pending
+  apply {
+    emit invite_accepted {
+      status: "accepted"
+    }
+  }
+}

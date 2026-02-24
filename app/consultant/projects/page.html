@@ -1,0 +1,46 @@
+---
+title: My Projects
+---
+<div class="page-header">
+    <h1>My Projects</h1>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <input type="text" class="search-input" placeholder="Search by homeowner or address..." id="search-projects">
+        <select class="filter-select" id="filter-status">
+            <option value="">All Statuses</option>
+            <option value="new">New</option>
+            <option value="consultation_scheduled">Consultation Scheduled</option>
+            <option value="consultation_complete">Consultation Complete</option>
+            <option value="referred">Referred</option>
+            <option value="matched">Matched</option>
+            <option value="project_complete">Project Complete</option>
+            <option value="closed">Closed</option>
+        </select>
+        <select class="filter-select" id="filter-type">
+            <option value="">All Types</option>
+            <option value="kitchen">Kitchen</option>
+            <option value="bathroom">Bathroom</option>
+            <option value="addition">Addition</option>
+            <option value="whole_home">Whole Home</option>
+            <option value="outdoor">Outdoor</option>
+            <option value="basement">Basement</option>
+            <option value="other">Other</option>
+        </select>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Address</th>
+                <th>Homeowner</th>
+                <th>Status</th>
+                <th>Budget</th>
+                <th>Last Activity</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="5" class="empty-state">No projects yet</td></tr>
+        </tbody>
+    </table>
+</div>

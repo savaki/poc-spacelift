@@ -1,0 +1,12 @@
+route {
+  POST create_invite {
+    data result {
+      invoke invite.create_invite {
+        email: input.body.email,
+        token: input.body.token,
+        organization_id: input.body.organization_id,
+        invited_by: input.body.invited_by
+      }
+    }
+  }
+}
