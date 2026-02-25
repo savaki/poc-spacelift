@@ -1,0 +1,37 @@
+---
+title: Users
+---
+<div class="page-header-actions">
+    <h1>Users</h1>
+    <a href="/users/new" class="btn">Invite User</a>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <input type="text" class="search-input" placeholder="Search by name or email..." id="search-users">
+        <select class="filter-select" id="filter-role">
+            <option value="">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="consultant">Consultant</option>
+            <option value="contractor">Contractor</option>
+        </select>
+        <select class="filter-select" id="filter-status">
+            <option value="">All Statuses</option>
+            <option value="invited">Invited</option>
+            <option value="active">Active</option>
+        </select>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="4" class="empty-state">No users yet</td></tr>
+        </tbody>
+    </table>
+</div>

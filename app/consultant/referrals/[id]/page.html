@@ -22,7 +22,7 @@ title: Referral Detail
 
 <div class="detail-grid">
     <div class="card">
-        <div class="card-title accent-blue">Referral Info</div>
+        <h3 class="card-title">Referral Information</h3>
         <dl class="detail-list">
             <dt>Referral ID</dt><dd>{{ .params.id }}</dd>
             <dt>Status</dt><dd><span class="status-badge status-badge-blue">sent</span></dd>
@@ -31,7 +31,7 @@ title: Referral Detail
         </dl>
     </div>
     <div class="card">
-        <div class="card-title accent-green">Project Info</div>
+        <h3 class="card-title">Project Information</h3>
         <dl class="detail-list">
             <dt>Project ID</dt><dd>-</dd>
             <dt>Type</dt><dd>-</dd>
@@ -41,7 +41,7 @@ title: Referral Detail
 </div>
 
 <div class="card">
-    <div class="card-title">Actions</div>
+    <h3 class="card-title">Actions</h3>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
         <button class="btn btn-sm" onclick="scheduleMeeting()">Schedule Intro Meeting</button>
         <button class="btn btn-green btn-sm" onclick="confirmConnection()">Confirm Connection</button>

@@ -6,10 +6,13 @@ title: Projects
     <a href="/projects/new" class="btn">New Project</a>
 </div>
 
-<div class="map-container" data-map-projects data-map-token="{{ .secrets.mapbox_token }}">
-    <span data-map-pin hidden data-address="123 Oak Avenue, Austin, TX 78701" data-label="Jane Smith" data-href="/projects/1"></span>
-    <span data-map-pin hidden data-address="456 Elm Street, Austin, TX 78704" data-label="Robert Johnson" data-href="/projects/2"></span>
-    <span data-map-pin hidden data-address="789 Pine Road, Austin, TX 78745" data-label="Sarah Williams" data-href="/projects/3"></span>
+<div class="card">
+    <h3 class="card-title">Project Locations</h3>
+    <div class="map-container" data-map-projects data-map-token="{{ .secrets.mapbox_token }}">
+        <span data-map-pin hidden data-address="123 Oak Avenue, Austin, TX 78701" data-label="Jane Smith" data-href="/projects/1"></span>
+        <span data-map-pin hidden data-address="456 Elm Street, Austin, TX 78704" data-label="Robert Johnson" data-href="/projects/2"></span>
+        <span data-map-pin hidden data-address="789 Pine Road, Austin, TX 78745" data-label="Sarah Williams" data-href="/projects/3"></span>
+    </div>
 </div>
 
 <div class="card">
