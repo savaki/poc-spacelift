@@ -1,0 +1,490 @@
+module referral_test
+
+test referral_full_lifecycle {
+  run send {
+    request {
+      name: "send_referral",
+      params: {
+        project_id: "proj-1",
+        organization_id: "org-1",
+        sender_id: "user-consultant-1",
+        consultant_notes: "Great fit for this project"
+      },
+      meta: {
+        id: "ref-1",
+        by: "consultant-1",
+        timestamp: 1700000000000,
+        action_id: "cmd-send-ref"
+      }
+    }
+    expect ok
+    assert record.project_id == "proj-1"
+    assert record.organization_id == "org-1"
+    assert record.sender_id == "user-consultant-1"
+    assert record.status == "sent"
+    assert record.consultant_notes == "Great fit for this project"
+    assert record.contractor_notes == ""
+    assert record.meeting_date == ""
+    assert events.len == 1
+    assert events[0].name == "referral_sent"
+  }
+
+  run view {
+    request {
+      name: "mark_viewed",
+      params: {},
+      meta: {
+        id: "ref-1",
+        by: "contractor-1",
+        timestamp: 1700000000100,
+        action_id: "cmd-view-ref"
+      }
+    }
+    expect ok
+    assert record.status == "viewed"
+    assert events[0].name == "referral_viewed"
+  }
+
+  run accept {
+    request {
+      name: "accept_referral",
+      params: {
+        contractor_notes: "We can start next month"
+      },
+      meta: {
+        id: "ref-1",
+        by: "contractor-1",
+        timestamp: 1700000000200,
+        action_id: "cmd-accept-ref"
+      }
+    }
+    expect ok
+    assert record.status == "accepted"
+    assert record.contractor_notes == "We can start next month"
+    assert events[0].name == "referral_accepted"
+  }
+
+  run schedule_meeting {
+    request {
+      name: "schedule_meeting",
+      params: {
+        meeting_date: "2024-03-15T10:00:00Z",
+        meeting_notes: "Introduction call with homeowner"
+      },
+      meta: {
+        id: "ref-1",
+        by: "consultant-1",
+        timestamp: 1700000000300,
+        action_id: "cmd-schedule"
+      }
+    }
+    expect ok
+    assert record.status == "scheduled"
+    assert record.meeting_date == "2024-03-15T10:00:00Z"
+    assert record.meeting_notes == "Introduction call with homeowner"
+    assert events[0].name == "meeting_scheduled"
+  }
+
+  run confirm {
+    request {
+      name: "confirm_connection",
+      params: {},
+      meta: {
+        id: "ref-1",
+        by: "consultant-1",
+        timestamp: 1700000000400,
+        action_id: "cmd-confirm"
+      }
+    }
+    expect ok
+    assert record.status == "connected"
+    assert events[0].name == "connection_confirmed"
+  }
+}
+
+test referral_decline_from_sent {
+  run send {
+    request {
+      name: "send_referral",
+      params: {
+        project_id: "proj-2",
+        organization_id: "org-2",
+        sender_id: "user-consultant-2"
+      },
+      meta: {
+        id: "ref-decline-sent",
+        by: "consultant-2",
+        timestamp: 1700000001000,
+        action_id: "cmd-send-decline"
+      }
+    }
+    expect ok
+    assert record.status == "sent"
+  }
+
+  run decline {
+    request {
+      name: "decline_referral",
+      params: {
+        contractor_notes: "Too far from our service area"
+      },
+      meta: {
+        id: "ref-decline-sent",
+        by: "contractor-2",
+        timestamp: 1700000001100,
+        action_id: "cmd-decline-sent"
+      }
+    }
+    expect ok
+    assert record.status == "declined"
+    assert record.contractor_notes == "Too far from our service area"
+    assert events[0].name == "referral_declined"
+  }
+}
+
+test referral_decline_from_viewed {
+  run send {
+    request {
+      name: "send_referral",
+      params: {
+        project_id: "proj-3",
+        organization_id: "org-3",
+        sender_id: "user-consultant-3"
+      },
+      meta: {
+        id: "ref-decline-viewed",
+        by: "consultant-3",
+        timestamp: 1700000002000,
+        action_id: "cmd-send-viewed"
+      }
+    }
+    expect ok
+  }
+
+  run view {
+    request {
+      name: "mark_viewed",
+      params: {},
+      meta: {
+        id: "ref-decline-viewed",
+        by: "contractor-3",
+        timestamp: 1700000002100,
+        action_id: "cmd-view-decline"
+      }
+    }
+    expect ok
+    assert record.status == "viewed"
+  }
+
+  run decline {
+    request {
+      name: "decline_referral",
+      params: {
+        contractor_notes: "Not taking new projects"
+      },
+      meta: {
+        id: "ref-decline-viewed",
+        by: "contractor-3",
+        timestamp: 1700000002200,
+        action_id: "cmd-decline-viewed"
+      }
+    }
+    expect ok
+    assert record.status == "declined"
+  }
+}
+
+test accept_from_sent_directly {
+  run send {
+    request {
+      name: "send_referral",
+      params: {
+        project_id: "proj-4",
+        organization_id: "org-4",
+        sender_id: "user-consultant-4"
+      },
+      meta: {
+        id: "ref-accept-direct",
+        by: "consultant-4",
+        timestamp: 1700000003000,
+        action_id: "cmd-send-direct"
+      }
+    }
+    expect ok
+  }
+
+  run accept_without_view {
+    request {
+      name: "accept_referral",
+      params: {
+        contractor_notes: "Happy to help"
+      },
+      meta: {
+        id: "ref-accept-direct",
+        by: "contractor-4",
+        timestamp: 1700000003100,
+        action_id: "cmd-accept-direct"
+      }
+    }
+    expect ok
+    assert record.status == "accepted"
+  }
+}
+
+test save_contractor_notes {
+  run send {
+    request {
+      name: "send_referral",
+      params: {
+        project_id: "proj-5",
+        organization_id: "org-5",
+        sender_id: "user-consultant-5"
+      },
+      meta: {
+        id: "ref-notes",
+        by: "consultant-5",
+        timestamp: 1700000004000,
+        action_id: "cmd-send-notes"
+      }
+    }
+    expect ok
+  }
+
+  run save_notes {
+    request {
+      name: "save_contractor_notes",
+      params: {
+        contractor_notes: "Reviewed the project scope"
+      },
+      meta: {
+        id: "ref-notes",
+        by: "contractor-5",
+        timestamp: 1700000004100,
+        action_id: "cmd-save-notes"
+      }
+    }
+    expect ok
+    assert record.contractor_notes == "Reviewed the project scope"
+    assert events[0].name == "contractor_notes_saved"
+  }
+}
+
+test cannot_view_non_sent {
+  run send {
+    request {
+      name: "send_referral",
+      params: {
+        project_id: "proj-6",
+        organization_id: "org-6",
+        sender_id: "user-consultant-6"
+      },
+      meta: {
+        id: "ref-view-fail",
+        by: "consultant-6",
+        timestamp: 1700000005000,
+        action_id: "cmd-send-view"
+      }
+    }
+    expect ok
+  }
+
+  run view {
+    request {
+      name: "mark_viewed",
+      params: {},
+      meta: {
+        id: "ref-view-fail",
+        by: "contractor-6",
+        timestamp: 1700000005100,
+        action_id: "cmd-view-ok"
+      }
+    }
+    expect ok
+  }
+
+  run view_again_fails {
+    request {
+      name: "mark_viewed",
+      params: {},
+      meta: {
+        id: "ref-view-fail",
+        by: "contractor-6",
+        timestamp: 1700000005200,
+        action_id: "cmd-view-again"
+      }
+    }
+    expect error "is_sent"
+  }
+}
+
+test cannot_accept_declined {
+  run send {
+    request {
+      name: "send_referral",
+      params: {
+        project_id: "proj-7",
+        organization_id: "org-7",
+        sender_id: "user-consultant-7"
+      },
+      meta: {
+        id: "ref-accept-declined",
+        by: "consultant-7",
+        timestamp: 1700000006000,
+        action_id: "cmd-send-ad"
+      }
+    }
+    expect ok
+  }
+
+  run decline {
+    request {
+      name: "decline_referral",
+      params: {},
+      meta: {
+        id: "ref-accept-declined",
+        by: "contractor-7",
+        timestamp: 1700000006100,
+        action_id: "cmd-decline-ad"
+      }
+    }
+    expect ok
+  }
+
+  run accept_fails {
+    request {
+      name: "accept_referral",
+      params: {},
+      meta: {
+        id: "ref-accept-declined",
+        by: "contractor-7",
+        timestamp: 1700000006200,
+        action_id: "cmd-accept-ad"
+      }
+    }
+    expect error "can_accept"
+  }
+}
+
+test cannot_schedule_non_accepted {
+  run send {
+    request {
+      name: "send_referral",
+      params: {
+        project_id: "proj-8",
+        organization_id: "org-8",
+        sender_id: "user-consultant-8"
+      },
+      meta: {
+        id: "ref-sched-fail",
+        by: "consultant-8",
+        timestamp: 1700000007000,
+        action_id: "cmd-send-sf"
+      }
+    }
+    expect ok
+  }
+
+  run schedule_fails {
+    request {
+      name: "schedule_meeting",
+      params: {
+        meeting_date: "2024-04-01T09:00:00Z"
+      },
+      meta: {
+        id: "ref-sched-fail",
+        by: "consultant-8",
+        timestamp: 1700000007100,
+        action_id: "cmd-sched-fail"
+      }
+    }
+    expect error "is_accepted"
+  }
+}
+
+test cannot_confirm_non_scheduled {
+  run send {
+    request {
+      name: "send_referral",
+      params: {
+        project_id: "proj-9",
+        organization_id: "org-9",
+        sender_id: "user-consultant-9"
+      },
+      meta: {
+        id: "ref-confirm-fail",
+        by: "consultant-9",
+        timestamp: 1700000008000,
+        action_id: "cmd-send-cf"
+      }
+    }
+    expect ok
+  }
+
+  run accept {
+    request {
+      name: "accept_referral",
+      params: {},
+      meta: {
+        id: "ref-confirm-fail",
+        by: "contractor-9",
+        timestamp: 1700000008100,
+        action_id: "cmd-accept-cf"
+      }
+    }
+    expect ok
+  }
+
+  run confirm_fails {
+    request {
+      name: "confirm_connection",
+      params: {},
+      meta: {
+        id: "ref-confirm-fail",
+        by: "consultant-9",
+        timestamp: 1700000008200,
+        action_id: "cmd-confirm-fail"
+      }
+    }
+    expect error "is_scheduled"
+  }
+}
+
+test send_referral_missing_project_fails {
+  run bad_send {
+    request {
+      name: "send_referral",
+      params: {
+        project_id: "",
+        organization_id: "org-10",
+        sender_id: "user-10"
+      },
+      meta: {
+        id: "ref-bad-proj",
+        by: "consultant-10",
+        timestamp: 1700000009000,
+        action_id: "cmd-bad-proj"
+      }
+    }
+    expect error "project_required"
+  }
+}
+
+test send_referral_missing_org_fails {
+  run bad_send {
+    request {
+      name: "send_referral",
+      params: {
+        project_id: "proj-10",
+        organization_id: "",
+        sender_id: "user-10"
+      },
+      meta: {
+        id: "ref-bad-org",
+        by: "consultant-10",
+        timestamp: 1700000010000,
+        action_id: "cmd-bad-org"
+      }
+    }
+    expect error "org_required"
+  }
+}

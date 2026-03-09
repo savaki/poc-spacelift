@@ -2,7 +2,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GROVE_DIR="$SCRIPT_DIR/../grove-2"
+GROVE_DIR="$SCRIPT_DIR/../grove"
 APP_PORT=19555
 
 cleanup() {

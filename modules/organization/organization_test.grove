@@ -1,0 +1,233 @@
+module organization_test
+
+test organization_lifecycle {
+  run create {
+    request {
+      name: "create_organization",
+      params: {
+        name: "Acme Builders",
+        organization_type: "general_contractor",
+        email: "info@acme.com",
+        phone: "555-0100",
+        website: "https://acme.com",
+        description: "Full-service general contractor"
+      },
+      meta: {
+        id: "org-1",
+        by: "admin",
+        timestamp: 1700000000000,
+        action_id: "cmd-create-org"
+      }
+    }
+    expect ok
+    assert record.name == "Acme Builders"
+    assert record.organization_type == "general_contractor"
+    assert record.email == "info@acme.com"
+    assert record.phone == "555-0100"
+    assert record.website == "https://acme.com"
+    assert record.verification_status == "invited"
+    assert record.description == "Full-service general contractor"
+    assert events.len == 1
+    assert events[0].name == "organization_created"
+  }
+
+  run update {
+    request {
+      name: "update_organization",
+      params: {
+        name: "Acme Builders LLC",
+        email: "contact@acme.com",
+        phone: "555-0200",
+        website: "https://acmebuilders.com",
+        description: "Premium general contractor"
+      },
+      meta: {
+        id: "org-1",
+        by: "admin",
+        timestamp: 1700000000100,
+        action_id: "cmd-update-org"
+      }
+    }
+    expect ok
+    assert record.name == "Acme Builders LLC"
+    assert record.email == "contact@acme.com"
+    assert record.website == "https://acmebuilders.com"
+    assert events[0].name == "organization_updated"
+  }
+
+  run initiate_verification {
+    request {
+      name: "initiate_verification",
+      params: {},
+      meta: {
+        id: "org-1",
+        by: "admin",
+        timestamp: 1700000000200,
+        action_id: "cmd-init-verify"
+      }
+    }
+    expect ok
+    assert record.verification_status == "pending"
+    assert events[0].name == "verification_initiated"
+  }
+
+  run approve {
+    request {
+      name: "approve_organization",
+      params: {},
+      meta: {
+        id: "org-1",
+        by: "admin",
+        timestamp: 1700000000300,
+        action_id: "cmd-approve"
+      }
+    }
+    expect ok
+    assert record.verification_status == "verified"
+    assert events[0].name == "organization_approved"
+  }
+}
+
+test approve_invited_directly {
+  run create {
+    request {
+      name: "create_organization",
+      params: {
+        name: "Direct Approve Co"
+      },
+      meta: {
+        id: "org-direct",
+        by: "admin",
+        timestamp: 1700000001000,
+        action_id: "cmd-create-direct"
+      }
+    }
+    expect ok
+    assert record.verification_status == "invited"
+  }
+
+  run approve_from_invited {
+    request {
+      name: "approve_organization",
+      params: {},
+      meta: {
+        id: "org-direct",
+        by: "admin",
+        timestamp: 1700000001100,
+        action_id: "cmd-approve-direct"
+      }
+    }
+    expect ok
+    assert record.verification_status == "verified"
+  }
+}
+
+test cannot_verify_already_verified {
+  run create {
+    request {
+      name: "create_organization",
+      params: {
+        name: "Already Verified Co"
+      },
+      meta: {
+        id: "org-already",
+        by: "admin",
+        timestamp: 1700000002000,
+        action_id: "cmd-create-already"
+      }
+    }
+    expect ok
+  }
+
+  run approve {
+    request {
+      name: "approve_organization",
+      params: {},
+      meta: {
+        id: "org-already",
+        by: "admin",
+        timestamp: 1700000002100,
+        action_id: "cmd-approve-already"
+      }
+    }
+    expect ok
+  }
+
+  run verify_again_fails {
+    request {
+      name: "initiate_verification",
+      params: {},
+      meta: {
+        id: "org-already",
+        by: "admin",
+        timestamp: 1700000002200,
+        action_id: "cmd-verify-again"
+      }
+    }
+    expect error "not_already_verified"
+  }
+}
+
+test cannot_approve_verified {
+  run create {
+    request {
+      name: "create_organization",
+      params: {
+        name: "Double Approve Co"
+      },
+      meta: {
+        id: "org-double",
+        by: "admin",
+        timestamp: 1700000003000,
+        action_id: "cmd-create-double"
+      }
+    }
+    expect ok
+  }
+
+  run approve {
+    request {
+      name: "approve_organization",
+      params: {},
+      meta: {
+        id: "org-double",
+        by: "admin",
+        timestamp: 1700000003100,
+        action_id: "cmd-approve-double"
+      }
+    }
+    expect ok
+  }
+
+  run approve_again_fails {
+    request {
+      name: "approve_organization",
+      params: {},
+      meta: {
+        id: "org-double",
+        by: "admin",
+        timestamp: 1700000003200,
+        action_id: "cmd-approve-again"
+      }
+    }
+    expect error "is_pending_or_invited"
+  }
+}
+
+test create_organization_empty_name_fails {
+  run bad_create {
+    request {
+      name: "create_organization",
+      params: {
+        name: ""
+      },
+      meta: {
+        id: "org-bad",
+        by: "admin",
+        timestamp: 1700000004000,
+        action_id: "cmd-bad-name"
+      }
+    }
+    expect error "name_not_empty"
+  }
+}

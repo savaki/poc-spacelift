@@ -1,23 +1,43 @@
+/// A home improvement project managed on the Spacelift platform.
+/// Projects track homeowner information, scope, budget, and are matched
+/// with contractors through the referral system.
 record {
-  status: String = "new"
-  project_type: String
-  homeowner_name: String = ""
-  homeowner_email: String = ""
+  /// Lifecycle status: new, in_progress, project_complete, or closed.
+  status: String = "new" @searchable
+  /// Category of renovation work (kitchen, bathroom, addition, etc.).
+  project_type: String @searchable
+  /// Homeowner's full name.
+  homeowner_name: String = "" @searchable
+  /// Homeowner's email for correspondence.
+  homeowner_email: String = "" @searchable
+  /// Homeowner's phone number.
   homeowner_phone: String = ""
+  /// Street address of the project site.
   address_street: String = ""
-  address_city: String = ""
-  address_state: String = ""
+  /// City of the project site.
+  address_city: String = "" @searchable
+  /// State or province of the project site.
+  address_state: String = "" @searchable
+  /// Postal code of the project site.
   address_zip: String = ""
+  /// Lower bound of the homeowner's budget range in dollars.
   budget_min: Int = 0
+  /// Upper bound of the homeowner's budget range in dollars.
   budget_max: Int = 0
-  consultant_id: String = ""
+  /// The consultant assigned to manage this project.
+  consultant_id: String = "" @searchable
+  /// Target completion date for the project.
+  target_date: Date?
+  /// Internal notes about the project.
   notes: String = ""
 }
 
+/// Ensures the project type is one of the allowed renovation categories.
 validate valid_project_type {
   params.project_type == "kitchen" || params.project_type == "bathroom" || params.project_type == "addition" || params.project_type == "whole_home" || params.project_type == "outdoor" || params.project_type == "basement" || params.project_type == "other"
 }
 
+/// Raised when a new project is first submitted to the platform.
 event project_created {
   status: String
   project_type: String
@@ -31,9 +51,11 @@ event project_created {
   budget_min: Int
   budget_max: Int
   consultant_id: String
+  target_date: Date?
   notes: String
 }
 
+/// Raised when project details (scope, address, budget, etc.) are modified.
 event project_updated {
   project_type: String
   homeowner_name: String
@@ -48,18 +70,23 @@ event project_updated {
   notes: String
 }
 
+/// Raised when a consultant is assigned to manage this project.
 event consultant_assigned {
   consultant_id: String
 }
 
+/// Raised when the project work is finished by the contractor.
 event project_completed {
   status: String
 }
 
+/// Raised when the project is administratively closed.
 event project_closed {
   status: String
 }
 
+/// Creates a new home improvement project with the given scope and details.
+/// The project starts in "new" status with no assigned consultant.
 @create
 action create_project {
   project_type: String
@@ -72,6 +99,7 @@ action create_project {
   address_zip: String = ""
   budget_min: Int = 0
   budget_max: Int = 0
+  target_date: Date?
   notes: String = ""
   validate valid_project_type
   apply {
@@ -88,11 +116,14 @@ action create_project {
       budget_min: params.budget_min
       budget_max: params.budget_max
       consultant_id: ""
+      target_date: params.target_date
       notes: params.notes
     }
   }
 }
 
+/// Updates the project's scope, homeowner info, address, or budget.
+/// Does not affect the project status or consultant assignment.
 action update_project {
   project_type: String = ""
   homeowner_name: String = ""
@@ -122,6 +153,8 @@ action update_project {
   }
 }
 
+/// Assigns a consultant to manage this project.
+/// The consultant coordinates between the homeowner and potential contractors.
 action assign_consultant {
   consultant_id: String
   apply {
@@ -131,6 +164,7 @@ action assign_consultant {
   }
 }
 
+/// Marks the project as complete after all contractor work is finished.
 action mark_project_complete {
   apply {
     emit project_completed {
@@ -139,6 +173,7 @@ action mark_project_complete {
   }
 }
 
+/// Closes the project, ending all active referrals and work.
 action close_project {
   apply {
     emit project_closed {

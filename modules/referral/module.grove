@@ -1,42 +1,61 @@
+/// A referral connecting a home improvement project to a contractor organization.
+/// Consultants create referrals to match homeowners with qualified contractors.
+/// Referrals follow a lifecycle: sent → viewed → accepted/declined → scheduled → connected.
 record {
-  project_id: String
-  organization_id: String
-  sender_id: String
-  status: String = "sent"
+  /// The project this referral is for.
+  project_id: String @searchable
+  /// The contractor organization being referred.
+  organization_id: String @searchable
+  /// The consultant who initiated this referral.
+  sender_id: String @searchable
+  /// Current lifecycle state of the referral.
+  status: String = "sent" @searchable
+  /// Notes from the consultant explaining why this contractor is a good fit.
   consultant_notes: String = ""
+  /// Notes from the contractor in response to the referral.
   contractor_notes: String = ""
+  /// Scheduled date for the homeowner-contractor meeting.
   meeting_date: String = ""
+  /// Details or agenda for the scheduled meeting.
   meeting_notes: String = ""
 }
 
+/// A referral must be associated with a project.
 validate project_required {
   params.project_id != ""
 }
 
+/// A referral must target a specific contractor organization.
 validate org_required {
   params.organization_id != ""
 }
 
+/// The referral must be in sent or viewed status to accept.
 validate can_accept {
   record.status == "sent" || record.status == "viewed"
 }
 
+/// The referral must be in sent or viewed status to decline.
 validate can_decline {
   record.status == "sent" || record.status == "viewed"
 }
 
+/// The referral must be freshly sent (not yet viewed or acted on).
 validate is_sent {
   record.status == "sent"
 }
 
+/// The referral must be accepted before a meeting can be scheduled.
 validate is_accepted {
   record.status == "accepted"
 }
 
+/// A meeting must be scheduled before the connection can be confirmed.
 validate is_scheduled {
   record.status == "scheduled"
 }
 
+/// Raised when a consultant creates and sends a new referral.
 event referral_sent {
   project_id: String
   organization_id: String
@@ -48,34 +67,42 @@ event referral_sent {
   meeting_notes: String
 }
 
+/// Raised when the contractor first opens and views the referral.
 event referral_viewed {
   status: String
 }
 
+/// Raised when the contractor accepts the referral and agrees to take the project.
 event referral_accepted {
   status: String
   contractor_notes: String
 }
 
+/// Raised when the contractor declines the referral.
 event referral_declined {
   status: String
   contractor_notes: String
 }
 
+/// Raised when a meeting between the homeowner and contractor is scheduled.
 event meeting_scheduled {
   status: String
   meeting_date: String
   meeting_notes: String
 }
 
+/// Raised when the homeowner-contractor connection is confirmed after the meeting.
 event connection_confirmed {
   status: String
 }
 
+/// Raised when the contractor updates their notes on a referral.
 event contractor_notes_saved {
   contractor_notes: String
 }
 
+/// Creates a new referral from a consultant to a contractor for a specific project.
+/// The referral starts in "sent" status.
 @create
 action send_referral {
   project_id: String
@@ -98,6 +125,7 @@ action send_referral {
   }
 }
 
+/// Records that the contractor has opened and viewed the referral.
 action mark_viewed {
   validate is_sent
   apply {
@@ -107,6 +135,7 @@ action mark_viewed {
   }
 }
 
+/// The contractor accepts the referral, optionally providing notes.
 action accept_referral {
   contractor_notes: String = ""
   validate can_accept
@@ -118,6 +147,7 @@ action accept_referral {
   }
 }
 
+/// The contractor declines the referral, optionally explaining why.
 action decline_referral {
   contractor_notes: String = ""
   validate can_decline
@@ -129,6 +159,8 @@ action decline_referral {
   }
 }
 
+/// Schedules a meeting between the homeowner and contractor.
+/// Only allowed after the contractor has accepted the referral.
 action schedule_meeting {
   meeting_date: String
   meeting_notes: String = ""
@@ -142,6 +174,8 @@ action schedule_meeting {
   }
 }
 
+/// Confirms the connection after the meeting has taken place.
+/// The project is now actively in the contractor's hands.
 action confirm_connection {
   validate is_scheduled
   apply {
@@ -151,6 +185,8 @@ action confirm_connection {
   }
 }
 
+/// Saves or updates the contractor's notes on this referral.
+/// Can be called at any point in the referral lifecycle.
 action save_contractor_notes {
   contractor_notes: String
   apply {

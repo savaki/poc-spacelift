@@ -1,0 +1,116 @@
+module invite_test
+
+test invite_lifecycle {
+  run create {
+    request {
+      name: "create_invite",
+      params: {
+        email: "newcontractor@example.com",
+        token: "tok-abc-123",
+        organization_id: "org-1",
+        invited_by: "user-admin-1"
+      },
+      meta: {
+        id: "inv-1",
+        by: "admin",
+        timestamp: 1700000000000,
+        action_id: "cmd-create-invite"
+      }
+    }
+    expect ok
+    assert record.email == "newcontractor@example.com"
+    assert record.token == "tok-abc-123"
+    assert record.organization_id == "org-1"
+    assert record.status == "pending"
+    assert record.invited_by == "user-admin-1"
+    assert events.len == 1
+    assert events[0].name == "invite_created"
+  }
+
+  run accept {
+    request {
+      name: "accept_invite",
+      params: {},
+      meta: {
+        id: "inv-1",
+        by: "newcontractor@example.com",
+        timestamp: 1700000000100,
+        action_id: "cmd-accept-invite"
+      }
+    }
+    expect ok
+    assert record.status == "accepted"
+    assert events[0].name == "invite_accepted"
+  }
+}
+
+test cannot_accept_already_accepted {
+  run create {
+    request {
+      name: "create_invite",
+      params: {
+        email: "already@example.com",
+        token: "tok-def-456",
+        organization_id: "org-2",
+        invited_by: "user-admin-2"
+      },
+      meta: {
+        id: "inv-already",
+        by: "admin",
+        timestamp: 1700000001000,
+        action_id: "cmd-create-already"
+      }
+    }
+    expect ok
+  }
+
+  run accept_first {
+    request {
+      name: "accept_invite",
+      params: {},
+      meta: {
+        id: "inv-already",
+        by: "already@example.com",
+        timestamp: 1700000001100,
+        action_id: "cmd-accept-first"
+      }
+    }
+    expect ok
+    assert record.status == "accepted"
+  }
+
+  run accept_again_fails {
+    request {
+      name: "accept_invite",
+      params: {},
+      meta: {
+        id: "inv-already",
+        by: "already@example.com",
+        timestamp: 1700000001200,
+        action_id: "cmd-accept-again"
+      }
+    }
+    expect error "is_pending"
+  }
+}
+
+test create_invite_empty_email_fails {
+  run bad_create {
+    request {
+      name: "create_invite",
+      params: {
+        email: "",
+        token: "tok-ghi-789",
+        organization_id: "org-3",
+        invited_by: "user-admin-3"
+      },
+      meta: {
+        id: "inv-bad",
+        by: "admin",
+        timestamp: 1700000002000,
+        action_id: "cmd-bad-invite"
+      }
+    }
+    expect error "email_not_empty"
+  }
+}

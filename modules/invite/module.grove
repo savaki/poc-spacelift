@@ -1,19 +1,30 @@
+/// An invitation to join the Spacelift platform.
+/// Invites are sent by existing users to bring new contractors or consultants
+/// into an organization. Each invite contains a unique token for verification.
 record {
-  email: String
+  /// Email address of the person being invited.
+  email: String @searchable
+  /// Unique one-time token used to verify and accept the invite.
   token: String
-  organization_id: String
-  status: String = "pending"
-  invited_by: String
+  /// The organization the invitee will join upon acceptance.
+  organization_id: String @searchable
+  /// Current state of the invite: pending, accepted, or expired.
+  status: String = "pending" @searchable
+  /// User ID of the person who sent this invitation.
+  invited_by: String @searchable
 }
 
+/// The invitee's email address must not be blank.
 validate email_not_empty {
   params.email != ""
 }
 
+/// The invite must still be in a pending state to be acted upon.
 validate is_pending {
   record.status == "pending"
 }
 
+/// Raised when a new invite is created and ready to be sent.
 event invite_created {
   email: String
   token: String
@@ -22,10 +33,13 @@ event invite_created {
   invited_by: String
 }
 
+/// Raised when a user clicks the invite link and accepts the invitation.
 event invite_accepted {
   status: String
 }
 
+/// Creates a new pending invitation and generates the invite record.
+/// The invite is associated with an organization and tracks who sent it.
 @create
 action create_invite {
   email: String
@@ -44,6 +58,8 @@ action create_invite {
   }
 }
 
+/// Marks a pending invite as accepted.
+/// Called when the invitee follows their invite link and completes onboarding.
 action accept_invite {
   validate is_pending
   apply {

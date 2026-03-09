@@ -1,0 +1,182 @@
+module user_test
+
+test user_lifecycle {
+  run create {
+    request {
+      name: "create_user",
+      params: {
+        email: "alice@example.com",
+        first_name: "Alice",
+        last_name: "Smith",
+        role: "consultant",
+        organization_id: "org-1",
+        phone: "555-1234"
+      },
+      meta: {
+        id: "user-1",
+        by: "admin",
+        timestamp: 1700000000000,
+        action_id: "cmd-create-user"
+      }
+    }
+    expect ok
+    assert record.email == "alice@example.com"
+    assert record.first_name == "Alice"
+    assert record.last_name == "Smith"
+    assert record.role == "consultant"
+    assert record.status == "active"
+    assert record.organization_id == "org-1"
+    assert record.phone == "555-1234"
+    assert events.len == 1
+    assert events[0].name == "user_created"
+  }
+
+  run update {
+    request {
+      name: "update_user",
+      params: {
+        first_name: "Alicia",
+        last_name: "Johnson",
+        phone: "555-9999",
+        email: "alicia@example.com",
+        organization_id: "org-2"
+      },
+      meta: {
+        id: "user-1",
+        by: "admin",
+        timestamp: 1700000000100,
+        action_id: "cmd-update-user"
+      }
+    }
+    expect ok
+    assert record.first_name == "Alicia"
+    assert record.last_name == "Johnson"
+    assert record.phone == "555-9999"
+    assert record.email == "alicia@example.com"
+    assert record.organization_id == "org-2"
+    assert events[0].name == "user_updated"
+  }
+}
+
+test create_user_all_roles {
+  run create_admin {
+    request {
+      name: "create_user",
+      params: {
+        email: "admin@example.com",
+        first_name: "Admin",
+        last_name: "User",
+        role: "admin"
+      },
+      meta: {
+        id: "user-admin",
+        by: "system",
+        timestamp: 1700000001000,
+        action_id: "cmd-create-admin"
+      }
+    }
+    expect ok
+    assert record.role == "admin"
+  }
+}
+
+test create_contractor_default_role {
+  run create_default {
+    request {
+      name: "create_user",
+      params: {
+        email: "bob@example.com",
+        first_name: "Bob",
+        last_name: "Builder"
+      },
+      meta: {
+        id: "user-bob",
+        by: "admin",
+        timestamp: 1700000002000,
+        action_id: "cmd-create-default"
+      }
+    }
+    expect ok
+    assert record.role == "contractor"
+    assert record.status == "active"
+  }
+}
+
+test activate_user {
+  run create {
+    request {
+      name: "create_user",
+      params: {
+        email: "invited@example.com",
+        first_name: "New",
+        last_name: "User",
+        role: "contractor"
+      },
+      meta: {
+        id: "user-new",
+        by: "admin",
+        timestamp: 1700000003000,
+        action_id: "cmd-create-invited"
+      }
+    }
+    expect ok
+  }
+
+  run activate {
+    request {
+      name: "activate_user",
+      params: {},
+      meta: {
+        id: "user-new",
+        by: "admin",
+        timestamp: 1700000003100,
+        action_id: "cmd-activate"
+      }
+    }
+    expect ok
+    assert record.status == "active"
+    assert events[0].name == "user_activated"
+  }
+}
+
+test create_user_empty_email_fails {
+  run bad_create {
+    request {
+      name: "create_user",
+      params: {
+        email: "",
+        first_name: "No",
+        last_name: "Email",
+        role: "contractor"
+      },
+      meta: {
+        id: "user-bad",
+        by: "admin",
+        timestamp: 1700000004000,
+        action_id: "cmd-bad-email"
+      }
+    }
+    expect error "email_not_empty"
+  }
+}
+
+test create_user_invalid_role_fails {
+  run bad_role {
+    request {
+      name: "create_user",
+      params: {
+        email: "bad@example.com",
+        first_name: "Bad",
+        last_name: "Role",
+        role: "superadmin"
+      },
+      meta: {
+        id: "user-bad-role",
+        by: "admin",
+        timestamp: 1700000005000,
+        action_id: "cmd-bad-role"
+      }
+    }
+    expect error "valid_role"
+  }
+}

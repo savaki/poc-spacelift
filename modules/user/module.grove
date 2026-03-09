@@ -1,21 +1,34 @@
+/// A user account on the Spacelift platform.
+/// Users belong to one of three roles: admin, consultant, or contractor.
+/// Each user may optionally be associated with an organization.
 record {
-  email: String
-  first_name: String
-  last_name: String
-  role: String = "contractor"
-  status: String = "active"
-  organization_id: String = ""
+  /// The user's login email address.
+  email: String @searchable
+  /// First (given) name.
+  first_name: String @searchable
+  /// Last (family) name.
+  last_name: String @searchable
+  /// Platform role: admin, consultant, or contractor.
+  role: String = "contractor" @searchable
+  /// Account status: active or deactivated.
+  status: String = "active" @searchable
+  /// The organization this user belongs to, if any.
+  organization_id: String = "" @searchable
+  /// Contact phone number.
   phone: String = ""
 }
 
+/// The user's email address must not be blank.
 validate email_not_empty {
   params.email != ""
 }
 
+/// Role must be one of the three allowed platform roles.
 validate valid_role {
   params.role == "admin" || params.role == "consultant" || params.role == "contractor"
 }
 
+/// Raised when a new user account is created.
 event user_created {
   email: String
   first_name: String
@@ -26,6 +39,7 @@ event user_created {
   phone: String
 }
 
+/// Raised when a user updates their profile information.
 event user_updated {
   first_name: String
   last_name: String
@@ -34,10 +48,13 @@ event user_updated {
   organization_id: String
 }
 
+/// Raised when a previously deactivated user account is reactivated.
 event user_activated {
   status: String
 }
 
+/// Creates a new user account with the specified role and profile details.
+/// The account is immediately set to "active" status.
 @create
 action create_user {
   email: String
@@ -61,6 +78,8 @@ action create_user {
   }
 }
 
+/// Updates an existing user's profile fields.
+/// Only the provided fields are changed; others remain as-is.
 action update_user {
   first_name: String = ""
   last_name: String = ""
@@ -78,6 +97,7 @@ action update_user {
   }
 }
 
+/// Reactivates a deactivated user account.
 action activate_user {
   apply {
     emit user_activated {

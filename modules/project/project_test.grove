@@ -1,0 +1,223 @@
+module project_test
+
+test project_lifecycle {
+  run create {
+    request {
+      name: "create_project",
+      params: {
+        project_type: "kitchen",
+        homeowner_name: "Jane Doe",
+        homeowner_email: "jane@example.com",
+        homeowner_phone: "555-1000",
+        address_street: "123 Main St",
+        address_city: "Portland",
+        address_state: "OR",
+        address_zip: "97201",
+        budget_min: 50000,
+        budget_max: 100000,
+        notes: "Full kitchen remodel"
+      },
+      meta: {
+        id: "proj-1",
+        by: "consultant-1",
+        timestamp: 1700000000000,
+        action_id: "cmd-create-proj"
+      }
+    }
+    expect ok
+    assert record.status == "new"
+    assert record.project_type == "kitchen"
+    assert record.homeowner_name == "Jane Doe"
+    assert record.homeowner_email == "jane@example.com"
+    assert record.address_city == "Portland"
+    assert record.address_zip == "97201"
+    assert record.budget_min == 50000
+    assert record.budget_max == 100000
+    assert record.consultant_id == ""
+    assert record.notes == "Full kitchen remodel"
+    assert events.len == 1
+    assert events[0].name == "project_created"
+  }
+
+  run assign_consultant {
+    request {
+      name: "assign_consultant",
+      params: {
+        consultant_id: "user-consultant-1"
+      },
+      meta: {
+        id: "proj-1",
+        by: "admin",
+        timestamp: 1700000000100,
+        action_id: "cmd-assign-consultant"
+      }
+    }
+    expect ok
+    assert record.consultant_id == "user-consultant-1"
+    assert events[0].name == "consultant_assigned"
+  }
+
+  run update {
+    request {
+      name: "update_project",
+      params: {
+        project_type: "whole_home",
+        budget_min: 75000,
+        budget_max: 150000,
+        notes: "Expanded to whole home remodel"
+      },
+      meta: {
+        id: "proj-1",
+        by: "consultant-1",
+        timestamp: 1700000000200,
+        action_id: "cmd-update-proj"
+      }
+    }
+    expect ok
+    assert record.project_type == "whole_home"
+    assert record.budget_min == 75000
+    assert record.budget_max == 150000
+    assert events[0].name == "project_updated"
+  }
+
+  run complete {
+    request {
+      name: "mark_project_complete",
+      params: {},
+      meta: {
+        id: "proj-1",
+        by: "admin",
+        timestamp: 1700000000300,
+        action_id: "cmd-complete-proj"
+      }
+    }
+    expect ok
+    assert record.status == "project_complete"
+    assert events[0].name == "project_completed"
+  }
+}
+
+test project_close {
+  run create {
+    request {
+      name: "create_project",
+      params: {
+        project_type: "bathroom"
+      },
+      meta: {
+        id: "proj-close",
+        by: "consultant-1",
+        timestamp: 1700000001000,
+        action_id: "cmd-create-close"
+      }
+    }
+    expect ok
+    assert record.status == "new"
+  }
+
+  run close {
+    request {
+      name: "close_project",
+      params: {},
+      meta: {
+        id: "proj-close",
+        by: "admin",
+        timestamp: 1700000001100,
+        action_id: "cmd-close-proj"
+      }
+    }
+    expect ok
+    assert record.status == "closed"
+    assert events[0].name == "project_closed"
+  }
+}
+
+test all_project_types {
+  run kitchen {
+    request {
+      name: "create_project",
+      params: { project_type: "kitchen" },
+      meta: { id: "proj-kt", by: "c", timestamp: 1700000002000, action_id: "cmd-kt" }
+    }
+    expect ok
+    assert record.project_type == "kitchen"
+  }
+}
+
+test project_type_bathroom {
+  run create {
+    request {
+      name: "create_project",
+      params: { project_type: "bathroom" },
+      meta: { id: "proj-ba", by: "c", timestamp: 1700000002100, action_id: "cmd-ba" }
+    }
+    expect ok
+    assert record.project_type == "bathroom"
+  }
+}
+
+test project_type_addition {
+  run create {
+    request {
+      name: "create_project",
+      params: { project_type: "addition" },
+      meta: { id: "proj-ad", by: "c", timestamp: 1700000002200, action_id: "cmd-ad" }
+    }
+    expect ok
+    assert record.project_type == "addition"
+  }
+}
+
+test project_type_outdoor {
+  run create {
+    request {
+      name: "create_project",
+      params: { project_type: "outdoor" },
+      meta: { id: "proj-od", by: "c", timestamp: 1700000002300, action_id: "cmd-od" }
+    }
+    expect ok
+    assert record.project_type == "outdoor"
+  }
+}
+
+test project_type_basement {
+  run create {
+    request {
+      name: "create_project",
+      params: { project_type: "basement" },
+      meta: { id: "proj-bs", by: "c", timestamp: 1700000002400, action_id: "cmd-bs" }
+    }
+    expect ok
+    assert record.project_type == "basement"
+  }
+}
+
+test project_type_other {
+  run create {
+    request {
+      name: "create_project",
+      params: { project_type: "other" },
+      meta: { id: "proj-ot", by: "c", timestamp: 1700000002500, action_id: "cmd-ot" }
+    }
+    expect ok
+    assert record.project_type == "other"
+  }
+}
+
+test invalid_project_type_fails {
+  run bad_type {
+    request {
+      name: "create_project",
+      params: {
+        project_type: "swimming_pool"
+      },
+      meta: {
+        id: "proj-bad",
+        by: "consultant-1",
+        timestamp: 1700000003000,
+        action_id: "cmd-bad-type"
+      }
+    }
+    expect error "valid_project_type"
+  }
+}

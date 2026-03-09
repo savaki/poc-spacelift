@@ -1,35 +1,62 @@
+enum OrganizationType {
+  general_contractor,
+  subcontractor,
+  consultant
+}
+
+enum VerificationStatus {
+  invited,
+  pending,
+  verified
+}
+
+/// A contractor or consultant organization on the Spacelift platform.
+/// Organizations go through a verification workflow before they can
+/// fully participate: invited → pending → verified.
 record {
-  name: String
-  organization_type: String = "general_contractor"
-  email: String = ""
+  /// Legal or trade name of the organization.
+  name: String @searchable
+  /// Type of business: general_contractor, subcontractor, or consultant.
+  organization_type: OrganizationType = OrganizationType.general_contractor
+  /// Primary contact email for the organization.
+  email: String = "" @searchable
+  /// Primary phone number.
   phone: String = ""
+  /// Company website URL.
   website: String = ""
-  verification_status: String = "invited"
+  /// Verification state: invited, pending, or verified.
+  verification_status: VerificationStatus = VerificationStatus.invited
+  /// Free-text description of the organization and its services.
   description: String = ""
 }
 
+/// The organization name cannot be blank.
 validate name_not_empty {
   params.name != ""
 }
 
+/// Prevents re-verifying an organization that is already verified.
 validate not_already_verified {
-  record.verification_status != "verified"
+  record.verification_status != VerificationStatus.verified
 }
 
+/// Verification can only be initiated from the pending or invited state.
 validate is_pending_or_invited {
-  record.verification_status == "pending" || record.verification_status == "invited"
+  record.verification_status == VerificationStatus.pending || record.verification_status == VerificationStatus.invited
 }
 
+/// Raised when a new organization record is first created.
 event organization_created {
   name: String
-  organization_type: String
+  organization_type: OrganizationType
   email: String
   phone: String
   website: String
-  verification_status: String
+  verification_status: VerificationStatus
   description: String
 }
 
+/// Raised when an organization's profile details are updated.
 event organization_updated {
   name: String
   email: String
@@ -38,18 +65,22 @@ event organization_updated {
   description: String
 }
 
+/// Raised when an admin begins the organization verification process.
 event verification_initiated {
-  verification_status: String
+  verification_status: VerificationStatus
 }
 
+/// Raised when an admin approves the organization, marking it as verified.
 event organization_approved {
-  verification_status: String
+  verification_status: VerificationStatus
 }
 
+/// Registers a new organization on the platform.
+/// Sets the initial verification status to "invited".
 @create
 action create_organization {
   name: String
-  organization_type: String = "general_contractor"
+  organization_type: OrganizationType = OrganizationType.general_contractor
   email: String = ""
   phone: String = ""
   website: String = ""
@@ -62,12 +93,14 @@ action create_organization {
       email: params.email
       phone: params.phone
       website: params.website
-      verification_status: "invited"
+      verification_status: VerificationStatus.invited
       description: params.description
     }
   }
 }
 
+/// Updates the organization's profile information.
+/// Only affects display fields; does not change verification status.
 action update_organization {
   name: String = ""
   email: String = ""
@@ -85,20 +118,24 @@ action update_organization {
   }
 }
 
+/// Begins the verification process by moving the status to "pending".
+/// Only allowed if the organization has not already been verified.
 action initiate_verification {
   validate not_already_verified
   apply {
     emit verification_initiated {
-      verification_status: "pending"
+      verification_status: VerificationStatus.pending
     }
   }
 }
 
+/// Approves a pending or invited organization, marking it as "verified".
+/// Verified organizations gain full access to the platform.
 action approve_organization {
   validate is_pending_or_invited
   apply {
     emit organization_approved {
-      verification_status: "verified"
+      verification_status: VerificationStatus.verified
     }
   }
 }
