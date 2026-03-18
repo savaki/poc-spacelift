@@ -1,0 +1,292 @@
+---
+title: Visit Details
+---
+{{#if .query.booked }}
+<div style="text-align:center;margin-bottom:1rem">
+    <div class="cal-success-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <h2 style="margin-bottom:0.25rem">Visit Requested!</h2>
+    <p style="color:var(--mz-color-gray-500);font-size:0.875rem;margin-bottom:1rem">The contractor will confirm your visit shortly.</p>
+</div>
+{{/if}}
+
+<div class="cal-card">
+    <h2 style="margin-bottom:0.5rem;font-size:1.125rem">Your Visit</h2>
+    <span class="cal-status-badge cal-status-{{ .data.record.status }}">{{ .data.record.status }}</span>
+
+    <dl class="cal-summary">
+        <dt>Date</dt>
+        <dd>{{ .data.record.scheduled_date }}</dd>
+        <dt>Time</dt>
+        <dd>{{ .data.record.start_time }}</dd>
+        {{#if .data.record.location_street }}
+        <dt>Address</dt>
+        <dd>{{ .data.record.location_street }}, {{ .data.record.location_city }} {{ .data.record.location_state }} {{ .data.record.location_zip }}</dd>
+        {{/if}}
+        <dt>Type</dt>
+        <dd>{{ .data.record.visit_type }}</dd>
+        {{#if .data.record.homeowner_notes }}
+        <dt>Your Notes</dt>
+        <dd>{{ .data.record.homeowner_notes }}</dd>
+        {{/if}}
+    </dl>
+
+    {{#if .data.record.contractor_notes }}
+    <h3 style="font-size:0.9375rem;font-weight:600;margin:1rem 0 0.5rem">Contractor Notes</h3>
+    <div style="background:var(--mz-color-blue-50,#eff6ff);border-radius:0.5rem;padding:0.75rem 1rem;font-size:0.875rem;color:var(--mz-color-blue-800,#1e40af)">
+        {{ .data.record.contractor_notes }}
+    </div>
+    {{/if}}
+
+    <div id="reschedule-section" style="margin-top:1.5rem">
+        <button class="cal-btn cal-btn-outline" id="reschedule-btn" onclick="toggleReschedule()">Reschedule Visit</button>
+    </div>
+
+    <div class="cal-return-link" style="margin-top:1rem">
+        Bookmark this link to check your visit status:<br>
+        <a href="/visit/{{ .params.visit_id }}" style="color:inherit;font-weight:600">
+            {{ .page.origin }}/visit/{{ .params.visit_id }}
+        </a>
+    </div>
+</div>
+
+<!-- Reschedule flow -->
+<div class="cal-card" id="reschedule-flow" style="display:none;margin-top:1rem">
+    <button class="cal-back" onclick="cancelReschedule()">&larr; Back to visit</button>
+    <h2 style="margin-bottom:1rem;font-size:1.125rem">Reschedule Visit</h2>
+
+    <div class="cal-loading" id="reschedule-avail-loading">Loading availability...</div>
+    <div id="reschedule-calendar" style="display:none">
+        <div class="cal-nav">
+            <button class="cal-back" onclick="rPrevMonth()" style="margin:0">&larr;</button>
+            <span class="cal-nav-title" id="r-cal-month-title"></span>
+            <button class="cal-back" onclick="rNextMonth()" style="margin:0">&rarr;</button>
+        </div>
+        <div class="cal-weekdays">
+            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+        </div>
+        <div class="cal-days" id="r-cal-days"></div>
+    </div>
+
+    <div id="reschedule-slots" style="display:none;margin-top:1rem">
+        <h3 style="font-size:0.9375rem;font-weight:600;margin-bottom:0.5rem">Select a Time</h3>
+        <p style="color:var(--mz-color-gray-500);margin-bottom:0.75rem;font-size:0.875rem" id="r-time-date-label"></p>
+        <div class="cal-loading" id="r-slots-loading" style="display:none">Checking availability...</div>
+        <div class="cal-slots" id="r-time-slots"></div>
+    </div>
+
+    <div id="reschedule-confirm" style="display:none;margin-top:1rem">
+        <div class="cal-error" id="reschedule-error"></div>
+        <button class="cal-btn" id="confirm-reschedule-btn" onclick="confirmReschedule()">Confirm Reschedule</button>
+    </div>
+</div>
+
+<script>
+var visitId = '{{ .params.visit_id }}';
+var contractorId = '{{ .data.record.contractor_id }}';
+var availabilitySlots = [];
+var rSelectedDate = null;
+var rSelectedTime = null;
+var rCalYear, rCalMonth;
+var dayMap = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0 };
+function cleanDayOfWeek(val) { return (val || '').replace(/"/g, '').toLowerCase(); }
+
+function formatTime(h, m) {
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var hour = h % 12 || 12;
+    return hour + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+}
+
+function formatDate(dateStr) {
+    var parts = dateStr.split('-');
+    var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+// --- Reschedule flow ---
+function toggleReschedule() {
+    document.getElementById('reschedule-flow').style.display = 'block';
+    loadRescheduleAvailability();
+}
+
+function cancelReschedule() {
+    document.getElementById('reschedule-flow').style.display = 'none';
+}
+
+async function loadRescheduleAvailability() {
+    document.getElementById('reschedule-slots').style.display = 'none';
+    document.getElementById('reschedule-confirm').style.display = 'none';
+    rSelectedDate = null;
+    rSelectedTime = null;
+
+    try {
+        var resp = await fetch('/api/availability/list');
+        var data = await resp.json();
+        if (!Array.isArray(data)) data = [];
+        availabilitySlots = data.filter(function(s) {
+            return s.user_id === contractorId && s.status === 'active';
+        });
+        document.getElementById('reschedule-avail-loading').style.display = 'none';
+        document.getElementById('reschedule-calendar').style.display = 'block';
+        var now = new Date();
+        rCalYear = now.getFullYear();
+        rCalMonth = now.getMonth();
+        renderRCalendar();
+    } catch (e) {
+        document.getElementById('reschedule-avail-loading').textContent = 'Failed to load availability.';
+    }
+}
+
+function getAvailableDays() {
+    var days = {};
+    availabilitySlots.forEach(function(slot) {
+        var jsDay = dayMap[cleanDayOfWeek(slot.day_of_week)];
+        if (jsDay !== undefined) {
+            if (!days[jsDay]) days[jsDay] = [];
+            days[jsDay].push(slot);
+        }
+    });
+    return days;
+}
+
+function renderRCalendar() {
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    document.getElementById('r-cal-month-title').textContent = months[rCalMonth] + ' ' + rCalYear;
+
+    var firstDay = new Date(rCalYear, rCalMonth, 1).getDay();
+    var daysInMonth = new Date(rCalYear, rCalMonth + 1, 0).getDate();
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var availDays = getAvailableDays();
+    var html = '';
+
+    for (var i = 0; i < firstDay; i++) html += '<div class="cal-day"></div>';
+
+    for (var d = 1; d <= daysInMonth; d++) {
+        var date = new Date(rCalYear, rCalMonth, d);
+        var jsDay = date.getDay();
+        var isPast = date < today;
+        var hasAvail = !!availDays[jsDay];
+        var isToday = date.getTime() === today.getTime();
+        var dateStr = date.toISOString().slice(0, 10);
+        var isSelected = rSelectedDate === dateStr;
+
+        var cls = 'cal-day in-month';
+        if (isToday) cls += ' today';
+        if (isPast) cls += ' disabled';
+        else if (hasAvail) cls += ' available';
+        if (isSelected) cls += ' selected';
+
+        if (!isPast && hasAvail) {
+            html += '<div class="' + cls + '" onclick="rSelectDate(\'' + dateStr + '\')">' + d + '</div>';
+        } else {
+            html += '<div class="' + cls + '">' + d + '</div>';
+        }
+    }
+    document.getElementById('r-cal-days').innerHTML = html;
+}
+
+function rPrevMonth() { rCalMonth--; if (rCalMonth < 0) { rCalMonth = 11; rCalYear--; } renderRCalendar(); }
+function rNextMonth() { rCalMonth++; if (rCalMonth > 11) { rCalMonth = 0; rCalYear++; } renderRCalendar(); }
+
+async function rSelectDate(dateStr) {
+    rSelectedDate = dateStr;
+    rSelectedTime = null;
+    renderRCalendar();
+    document.getElementById('reschedule-slots').style.display = 'block';
+    document.getElementById('reschedule-confirm').style.display = 'none';
+
+    var slotsEl = document.getElementById('r-time-slots');
+    var loadingEl = document.getElementById('r-slots-loading');
+    slotsEl.innerHTML = '';
+    loadingEl.style.display = 'block';
+
+    document.getElementById('r-time-date-label').textContent = formatDate(dateStr);
+
+    var parts = dateStr.split('-');
+    var dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    var jsDay = dateObj.getDay();
+    var availDays = getAvailableDays();
+    var daySlots = availDays[jsDay] || [];
+
+    // Load booked visits for conflict detection
+    var bookedVisits = [];
+    try {
+        var resp = await fetch('/api/visit/list');
+        var data = await resp.json();
+        if (!Array.isArray(data)) data = [];
+        bookedVisits = data.filter(function(v) {
+            return v.contractor_id === contractorId
+                && v.scheduled_date === dateStr
+                && v.status !== 'cancelled'
+                && v.status !== 'no_show'
+                && v.id !== visitId;
+        });
+    } catch (e) { /* continue without conflict data */ }
+
+    loadingEl.style.display = 'none';
+
+    var html = '';
+    daySlots.forEach(function(slot) {
+        var startH = parseInt(slot.start_time.split(':')[0]);
+        var startM = parseInt(slot.start_time.split(':')[1]) || 0;
+        var endH = parseInt(slot.end_time.split(':')[0]);
+        var endM = parseInt(slot.end_time.split(':')[1]) || 0;
+        var startMin = startH * 60 + startM;
+        var endMin = endH * 60 + endM;
+
+        for (var m = startMin; m + 60 <= endMin; m += 60) {
+            var h = Math.floor(m / 60);
+            var mm = m % 60;
+            var timeStr = String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+            var endTimeStr = String(h + 1).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+            var isBooked = bookedVisits.some(function(v) { return v.start_time === timeStr; });
+
+            if (isBooked) {
+                html += '<div class="cal-slot booked">' + formatTime(h, mm) + '</div>';
+            } else {
+                html += '<div class="cal-slot" onclick="rSelectTime(\'' + timeStr + '\', \'' + endTimeStr + '\')">' + formatTime(h, mm) + '</div>';
+            }
+        }
+    });
+
+    slotsEl.innerHTML = html || '<p style="grid-column:1/-1;text-align:center;color:var(--mz-color-gray-500);padding:1rem">No available slots.</p>';
+}
+
+function rSelectTime(startTime, endTime) {
+    rSelectedTime = { start: startTime, end: endTime };
+    document.querySelectorAll('#r-time-slots .cal-slot').forEach(function(el) {
+        el.classList.remove('selected');
+    });
+    event.target.classList.add('selected');
+    document.getElementById('reschedule-confirm').style.display = 'block';
+}
+
+async function confirmReschedule() {
+    var btn = document.getElementById('confirm-reschedule-btn');
+    var errorEl = document.getElementById('reschedule-error');
+    errorEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Rescheduling...';
+
+    try {
+        var resp = await fetch('/api/visit/' + visitId + '/reschedule_visit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                scheduled_date: rSelectedDate,
+                start_time: rSelectedTime.start,
+                end_time: rSelectedTime.end
+            })
+        });
+        if (!resp.ok) throw new Error('Reschedule failed');
+        // Reload server-rendered page to show updated visit
+        up.visit('/visit/' + visitId);
+    } catch (err) {
+        errorEl.textContent = err.message || 'Failed to reschedule. Please try again.';
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Confirm Reschedule';
+    }
+}
+</script>

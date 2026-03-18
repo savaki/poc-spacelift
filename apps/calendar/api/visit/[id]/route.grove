@@ -1,0 +1,21 @@
+route {
+  auth public
+
+  GET {
+    data record {
+      query visit.get_visit {
+        visit_id: input.params.id
+      }
+    }
+  }
+
+  POST reschedule_visit {
+    data result {
+      invoke visit.reschedule_visit {
+        scheduled_date: input.body.scheduled_date,
+        start_time: input.body.start_time,
+        end_time: input.body.end_time
+      }
+    }
+  }
+}

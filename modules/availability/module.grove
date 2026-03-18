@@ -1,0 +1,153 @@
+query list_availabilities {
+  gsql {
+    SELECT id, user_id, organization_id, day_of_week, start_time, end_time, status, created_at
+    FROM availability ORDER BY created_at DESC
+  }
+  output: List<Object>
+}
+
+query get_availability {
+  args {
+    availability_id: String
+  }
+  sql {
+    SELECT id, user_id, organization_id, day_of_week, start_time, end_time, status, created_at
+    FROM availability WHERE id = @availability_id
+  }
+  output: Object
+}
+
+enum DayOfWeek {
+  monday,
+  tuesday,
+  wednesday,
+  thursday,
+  friday,
+  saturday,
+  sunday
+}
+
+/// A recurring weekly availability window for a contractor or consultant.
+/// Defines when a professional is available for homeowner visits.
+/// Multiple slots can exist per user per day to support split schedules.
+record {
+  /// The contractor or consultant who owns this availability slot.
+  user_id: String @searchable
+  /// The organization the user belongs to.
+  organization_id: String = "" @searchable
+  /// Day of the week this slot applies to.
+  day_of_week: DayOfWeek
+  /// Start time in HH:MM format (24-hour).
+  start_time: String
+  /// End time in HH:MM format (24-hour).
+  end_time: String
+  /// Whether this availability slot is currently active.
+  status: String = "active" @searchable
+}
+
+/// An availability slot must be owned by a user.
+validate user_required {
+  params.user_id != ""
+}
+
+/// Start time must be provided.
+validate start_time_required {
+  params.start_time != ""
+}
+
+/// End time must be provided.
+validate end_time_required {
+  params.end_time != ""
+}
+
+/// The slot must be active to deactivate it.
+validate is_active {
+  record.status == "active"
+}
+
+/// The slot must be inactive to reactivate it.
+validate is_inactive {
+  record.status == "inactive"
+}
+
+/// Raised when a new availability slot is created.
+event availability_created {
+  user_id: String
+  organization_id: String
+  day_of_week: DayOfWeek
+  start_time: String
+  end_time: String
+  status: String
+}
+
+/// Raised when an availability slot's times are updated.
+event availability_updated {
+  start_time: String
+  end_time: String
+}
+
+/// Raised when an availability slot is deactivated.
+event availability_deactivated {
+  status: String
+}
+
+/// Raised when an availability slot is reactivated.
+event availability_activated {
+  status: String
+}
+
+/// Creates a new weekly availability slot for a professional.
+/// The slot starts in "active" status.
+@create
+action create_availability {
+  user_id: String
+  organization_id: String = ""
+  day_of_week: DayOfWeek
+  start_time: String
+  end_time: String
+  validate user_required
+  validate start_time_required
+  validate end_time_required
+  apply {
+    emit availability_created {
+      user_id: params.user_id
+      organization_id: params.organization_id
+      day_of_week: params.day_of_week
+      start_time: params.start_time
+      end_time: params.end_time
+      status: "active"
+    }
+  }
+}
+
+/// Updates the time range for an existing availability slot.
+action update_availability {
+  start_time: String = ""
+  end_time: String = ""
+  apply {
+    emit availability_updated {
+      start_time: params.start_time
+      end_time: params.end_time
+    }
+  }
+}
+
+/// Deactivates an availability slot so it no longer appears as bookable.
+action deactivate_availability {
+  validate is_active
+  apply {
+    emit availability_deactivated {
+      status: "inactive"
+    }
+  }
+}
+
+/// Reactivates a previously deactivated availability slot.
+action activate_availability {
+  validate is_inactive
+  apply {
+    emit availability_activated {
+      status: "active"
+    }
+  }
+}

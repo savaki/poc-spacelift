@@ -1,0 +1,18 @@
+route {
+  auth public
+
+  POST create_project {
+    data result {
+      invoke project.create_project {
+        project_type: input.body.project_type,
+        homeowner_name: input.body.homeowner_name,
+        homeowner_email: input.body.homeowner_email,
+        homeowner_phone: input.body.homeowner_phone,
+        address_street: input.body.address_street,
+        address_city: input.body.address_city,
+        address_state: input.body.address_state,
+        address_zip: input.body.address_zip
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+route {
+  auth public
+
+  POST submit_availability {
+    data result {
+      invoke homeowner_availability.submit_availability {
+        project_id: input.body.project_id,
+        homeowner_name: input.body.homeowner_name,
+        homeowner_email: input.body.homeowner_email,
+        homeowner_phone: input.body.homeowner_phone,
+        available_date: input.body.available_date,
+        start_time: input.body.start_time,
+        end_time: input.body.end_time,
+        notes: input.body.notes
+      }
+    }
+  }
+}

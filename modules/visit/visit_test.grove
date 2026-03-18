@@ -1,0 +1,1554 @@
+module visit_test
+
+test visit_full_lifecycle {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-1",
+        organization_id: "org-1",
+        contractor_id: "contractor-1",
+        referral_id: "ref-1",
+        homeowner_name: "Jane Smith",
+        homeowner_email: "jane@example.com",
+        homeowner_phone: "555-0100",
+        scheduled_date: "2024-04-15",
+        start_time: "10:00",
+        end_time: "11:00",
+        visit_type: "initial_consultation",
+        location_street: "123 Oak Ave",
+        location_city: "Springfield",
+        location_state: "IL",
+        location_zip: "62701",
+        homeowner_notes: "Please use the side entrance"
+      },
+      meta: {
+        id: "visit-1",
+        by: "consultant-1",
+        timestamp: 1700000000000,
+        action_id: "cmd-request-visit"
+      }
+    }
+    expect ok
+    assert record.project_id == "proj-1"
+    assert record.organization_id == "org-1"
+    assert record.contractor_id == "contractor-1"
+    assert record.referral_id == "ref-1"
+    assert record.homeowner_name == "Jane Smith"
+    assert record.scheduled_date == "2024-04-15"
+    assert record.start_time == "10:00"
+    assert record.end_time == "11:00"
+    assert record.status == "requested"
+    assert record.location_street == "123 Oak Ave"
+    assert record.homeowner_notes == "Please use the side entrance"
+    assert record.contractor_notes == ""
+    assert record.cancellation_reason == ""
+    assert events.len == 1
+    assert events[0].name == "visit_requested"
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {
+        contractor_notes: "Will arrive 10 mins early"
+      },
+      meta: {
+        id: "visit-1",
+        by: "contractor-1",
+        timestamp: 1700000000100,
+        action_id: "cmd-confirm-visit"
+      }
+    }
+    expect ok
+    assert record.status == "confirmed"
+    assert record.contractor_notes == "Will arrive 10 mins early"
+    assert events[0].name == "visit_confirmed"
+  }
+
+  run start {
+    request {
+      name: "start_visit",
+      params: {},
+      meta: {
+        id: "visit-1",
+        by: "contractor-1",
+        timestamp: 1700000000200,
+        action_id: "cmd-start-visit"
+      }
+    }
+    expect ok
+    assert record.status == "in_progress"
+    assert events[0].name == "visit_started"
+  }
+
+  run complete {
+    request {
+      name: "complete_visit",
+      params: {
+        contractor_notes: "Kitchen needs full remodel, estimate sent"
+      },
+      meta: {
+        id: "visit-1",
+        by: "contractor-1",
+        timestamp: 1700000000300,
+        action_id: "cmd-complete-visit"
+      }
+    }
+    expect ok
+    assert record.status == "completed"
+    assert record.contractor_notes == "Kitchen needs full remodel, estimate sent"
+    assert events[0].name == "visit_completed"
+  }
+}
+
+test visit_cancel_from_requested {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-2",
+        contractor_id: "contractor-2",
+        scheduled_date: "2024-04-20",
+        start_time: "14:00"
+      },
+      meta: {
+        id: "visit-cancel-req",
+        by: "consultant-2",
+        timestamp: 1700000001000,
+        action_id: "cmd-req-cancel"
+      }
+    }
+    expect ok
+    assert record.status == "requested"
+  }
+
+  run cancel {
+    request {
+      name: "cancel_visit",
+      params: {
+        cancellation_reason: "Homeowner scheduling conflict"
+      },
+      meta: {
+        id: "visit-cancel-req",
+        by: "consultant-2",
+        timestamp: 1700000001100,
+        action_id: "cmd-cancel-req"
+      }
+    }
+    expect ok
+    assert record.status == "cancelled"
+    assert record.cancellation_reason == "Homeowner scheduling conflict"
+    assert events[0].name == "visit_cancelled"
+  }
+}
+
+test visit_cancel_from_confirmed {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-3",
+        contractor_id: "contractor-3",
+        scheduled_date: "2024-04-22",
+        start_time: "09:00"
+      },
+      meta: {
+        id: "visit-cancel-conf",
+        by: "consultant-3",
+        timestamp: 1700000002000,
+        action_id: "cmd-req-cancel-conf"
+      }
+    }
+    expect ok
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-cancel-conf",
+        by: "contractor-3",
+        timestamp: 1700000002100,
+        action_id: "cmd-confirm-cancel"
+      }
+    }
+    expect ok
+    assert record.status == "confirmed"
+  }
+
+  run cancel {
+    request {
+      name: "cancel_visit",
+      params: {
+        cancellation_reason: "Contractor unavailable"
+      },
+      meta: {
+        id: "visit-cancel-conf",
+        by: "contractor-3",
+        timestamp: 1700000002200,
+        action_id: "cmd-cancel-conf"
+      }
+    }
+    expect ok
+    assert record.status == "cancelled"
+  }
+}
+
+test visit_no_show {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-4",
+        contractor_id: "contractor-4",
+        scheduled_date: "2024-04-25",
+        start_time: "11:00"
+      },
+      meta: {
+        id: "visit-no-show",
+        by: "consultant-4",
+        timestamp: 1700000003000,
+        action_id: "cmd-req-noshow"
+      }
+    }
+    expect ok
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-no-show",
+        by: "contractor-4",
+        timestamp: 1700000003100,
+        action_id: "cmd-confirm-noshow"
+      }
+    }
+    expect ok
+  }
+
+  run no_show {
+    request {
+      name: "mark_no_show",
+      params: {
+        contractor_notes: "Waited 30 minutes, homeowner did not arrive"
+      },
+      meta: {
+        id: "visit-no-show",
+        by: "contractor-4",
+        timestamp: 1700000003200,
+        action_id: "cmd-noshow"
+      }
+    }
+    expect ok
+    assert record.status == "no_show"
+    assert record.contractor_notes == "Waited 30 minutes, homeowner did not arrive"
+    assert events[0].name == "visit_no_show"
+  }
+}
+
+test visit_reschedule {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-5",
+        contractor_id: "contractor-5",
+        scheduled_date: "2024-05-01",
+        start_time: "10:00",
+        end_time: "11:00"
+      },
+      meta: {
+        id: "visit-resched",
+        by: "consultant-5",
+        timestamp: 1700000004000,
+        action_id: "cmd-req-resched"
+      }
+    }
+    expect ok
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-resched",
+        by: "contractor-5",
+        timestamp: 1700000004100,
+        action_id: "cmd-confirm-resched"
+      }
+    }
+    expect ok
+  }
+
+  run reschedule {
+    request {
+      name: "reschedule_visit",
+      params: {
+        scheduled_date: "2024-05-08",
+        start_time: "14:00",
+        end_time: "15:00"
+      },
+      meta: {
+        id: "visit-resched",
+        by: "consultant-5",
+        timestamp: 1700000004200,
+        action_id: "cmd-reschedule"
+      }
+    }
+    expect ok
+    assert record.scheduled_date == "2024-05-08"
+    assert record.start_time == "14:00"
+    assert record.end_time == "15:00"
+    assert record.status == "requested"
+    assert events[0].name == "visit_rescheduled"
+  }
+}
+
+test update_notes {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-6",
+        contractor_id: "contractor-6",
+        scheduled_date: "2024-05-10",
+        start_time: "09:00"
+      },
+      meta: {
+        id: "visit-notes",
+        by: "consultant-6",
+        timestamp: 1700000005000,
+        action_id: "cmd-req-notes"
+      }
+    }
+    expect ok
+  }
+
+  run homeowner_notes {
+    request {
+      name: "update_homeowner_notes",
+      params: {
+        homeowner_notes: "Dog is friendly but loud"
+      },
+      meta: {
+        id: "visit-notes",
+        by: "homeowner-6",
+        timestamp: 1700000005100,
+        action_id: "cmd-homeowner-notes"
+      }
+    }
+    expect ok
+    assert record.homeowner_notes == "Dog is friendly but loud"
+    assert events[0].name == "homeowner_notes_updated"
+  }
+
+  run contractor_notes {
+    request {
+      name: "update_contractor_notes",
+      params: {
+        contractor_notes: "Bringing measuring equipment"
+      },
+      meta: {
+        id: "visit-notes",
+        by: "contractor-6",
+        timestamp: 1700000005200,
+        action_id: "cmd-contractor-notes"
+      }
+    }
+    expect ok
+    assert record.contractor_notes == "Bringing measuring equipment"
+    assert events[0].name == "contractor_notes_updated"
+  }
+}
+
+test cannot_confirm_non_requested {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-7",
+        contractor_id: "contractor-7",
+        scheduled_date: "2024-05-15",
+        start_time: "10:00"
+      },
+      meta: {
+        id: "visit-confirm-fail",
+        by: "consultant-7",
+        timestamp: 1700000006000,
+        action_id: "cmd-req-cf"
+      }
+    }
+    expect ok
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-confirm-fail",
+        by: "contractor-7",
+        timestamp: 1700000006100,
+        action_id: "cmd-confirm-cf"
+      }
+    }
+    expect ok
+  }
+
+  run confirm_again_fails {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-confirm-fail",
+        by: "contractor-7",
+        timestamp: 1700000006200,
+        action_id: "cmd-confirm-again"
+      }
+    }
+    expect error "can_confirm"
+  }
+}
+
+test cannot_start_non_confirmed {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-8",
+        contractor_id: "contractor-8",
+        scheduled_date: "2024-05-18",
+        start_time: "11:00"
+      },
+      meta: {
+        id: "visit-start-fail",
+        by: "consultant-8",
+        timestamp: 1700000007000,
+        action_id: "cmd-req-sf"
+      }
+    }
+    expect ok
+  }
+
+  run start_fails {
+    request {
+      name: "start_visit",
+      params: {},
+      meta: {
+        id: "visit-start-fail",
+        by: "contractor-8",
+        timestamp: 1700000007100,
+        action_id: "cmd-start-fail"
+      }
+    }
+    expect error "can_start"
+  }
+}
+
+test cannot_complete_non_started {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-9",
+        contractor_id: "contractor-9",
+        scheduled_date: "2024-05-20",
+        start_time: "09:00"
+      },
+      meta: {
+        id: "visit-complete-fail",
+        by: "consultant-9",
+        timestamp: 1700000008000,
+        action_id: "cmd-req-cmplt"
+      }
+    }
+    expect ok
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-complete-fail",
+        by: "contractor-9",
+        timestamp: 1700000008100,
+        action_id: "cmd-confirm-cmplt"
+      }
+    }
+    expect ok
+  }
+
+  run complete_fails {
+    request {
+      name: "complete_visit",
+      params: {},
+      meta: {
+        id: "visit-complete-fail",
+        by: "contractor-9",
+        timestamp: 1700000008200,
+        action_id: "cmd-complete-fail"
+      }
+    }
+    expect error "can_complete"
+  }
+}
+
+test cannot_cancel_completed {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-10",
+        contractor_id: "contractor-10",
+        scheduled_date: "2024-05-22",
+        start_time: "10:00"
+      },
+      meta: {
+        id: "visit-cancel-cmplt",
+        by: "consultant-10",
+        timestamp: 1700000009000,
+        action_id: "cmd-req-cc"
+      }
+    }
+    expect ok
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-cancel-cmplt",
+        by: "contractor-10",
+        timestamp: 1700000009100,
+        action_id: "cmd-confirm-cc"
+      }
+    }
+    expect ok
+  }
+
+  run start {
+    request {
+      name: "start_visit",
+      params: {},
+      meta: {
+        id: "visit-cancel-cmplt",
+        by: "contractor-10",
+        timestamp: 1700000009200,
+        action_id: "cmd-start-cc"
+      }
+    }
+    expect ok
+  }
+
+  run complete {
+    request {
+      name: "complete_visit",
+      params: {},
+      meta: {
+        id: "visit-cancel-cmplt",
+        by: "contractor-10",
+        timestamp: 1700000009300,
+        action_id: "cmd-complete-cc"
+      }
+    }
+    expect ok
+  }
+
+  run cancel_fails {
+    request {
+      name: "cancel_visit",
+      params: {
+        cancellation_reason: "Too late"
+      },
+      meta: {
+        id: "visit-cancel-cmplt",
+        by: "consultant-10",
+        timestamp: 1700000009400,
+        action_id: "cmd-cancel-cc"
+      }
+    }
+    expect error "can_cancel"
+  }
+}
+
+test cannot_no_show_non_confirmed {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-11",
+        contractor_id: "contractor-11",
+        scheduled_date: "2024-05-25",
+        start_time: "14:00"
+      },
+      meta: {
+        id: "visit-noshow-fail",
+        by: "consultant-11",
+        timestamp: 1700000010000,
+        action_id: "cmd-req-nsf"
+      }
+    }
+    expect ok
+  }
+
+  run no_show_fails {
+    request {
+      name: "mark_no_show",
+      params: {},
+      meta: {
+        id: "visit-noshow-fail",
+        by: "contractor-11",
+        timestamp: 1700000010100,
+        action_id: "cmd-noshow-fail"
+      }
+    }
+    expect error "can_mark_no_show"
+  }
+}
+
+test request_missing_project_fails {
+  run bad_request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "",
+        contractor_id: "contractor-12",
+        scheduled_date: "2024-06-01",
+        start_time: "10:00"
+      },
+      meta: {
+        id: "visit-bad-proj",
+        by: "consultant-12",
+        timestamp: 1700000011000,
+        action_id: "cmd-bad-proj"
+      }
+    }
+    expect error "project_required"
+  }
+}
+
+test request_missing_contractor_fails {
+  run bad_request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-13",
+        contractor_id: "",
+        scheduled_date: "2024-06-01",
+        start_time: "10:00"
+      },
+      meta: {
+        id: "visit-bad-contr",
+        by: "consultant-13",
+        timestamp: 1700000012000,
+        action_id: "cmd-bad-contr"
+      }
+    }
+    expect error "contractor_required"
+  }
+}
+
+test request_missing_date_fails {
+  run bad_request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-14",
+        contractor_id: "contractor-14",
+        scheduled_date: "",
+        start_time: "10:00"
+      },
+      meta: {
+        id: "visit-bad-date",
+        by: "consultant-14",
+        timestamp: 1700000013000,
+        action_id: "cmd-bad-date"
+      }
+    }
+    expect error "date_required"
+  }
+}
+
+test request_missing_time_fails {
+  run bad_request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-15",
+        contractor_id: "contractor-15",
+        scheduled_date: "2024-06-01",
+        start_time: ""
+      },
+      meta: {
+        id: "visit-bad-time",
+        by: "consultant-15",
+        timestamp: 1700000014000,
+        action_id: "cmd-bad-time"
+      }
+    }
+    expect error "start_time_required"
+  }
+}
+
+test request_minimal_params_defaults {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-16",
+        contractor_id: "contractor-16",
+        scheduled_date: "2024-06-05",
+        start_time: "09:00"
+      },
+      meta: {
+        id: "visit-defaults",
+        by: "consultant-16",
+        timestamp: 1700000015000,
+        action_id: "cmd-req-defaults"
+      }
+    }
+    expect ok
+    assert record.project_id == "proj-16"
+    assert record.contractor_id == "contractor-16"
+    assert record.organization_id == ""
+    assert record.referral_id == ""
+    assert record.homeowner_name == ""
+    assert record.homeowner_email == ""
+    assert record.homeowner_phone == ""
+    assert record.end_time == ""
+    assert record.visit_type == "initial_consultation"
+    assert record.status == "requested"
+    assert record.location_street == ""
+    assert record.location_city == ""
+    assert record.location_state == ""
+    assert record.location_zip == ""
+    assert record.homeowner_notes == ""
+    assert record.contractor_notes == ""
+    assert record.cancellation_reason == ""
+  }
+}
+
+test request_with_estimate_type {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-17",
+        contractor_id: "contractor-17",
+        scheduled_date: "2024-06-10",
+        start_time: "10:00",
+        visit_type: "estimate"
+      },
+      meta: {
+        id: "visit-estimate",
+        by: "consultant-17",
+        timestamp: 1700000016000,
+        action_id: "cmd-req-estimate"
+      }
+    }
+    expect ok
+    assert record.visit_type == "estimate"
+  }
+}
+
+test request_with_site_inspection_type {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-18",
+        contractor_id: "contractor-18",
+        scheduled_date: "2024-06-12",
+        start_time: "14:00",
+        visit_type: "site_inspection"
+      },
+      meta: {
+        id: "visit-inspection",
+        by: "consultant-18",
+        timestamp: 1700000017000,
+        action_id: "cmd-req-inspection"
+      }
+    }
+    expect ok
+    assert record.visit_type == "site_inspection"
+  }
+}
+
+test request_with_follow_up_type {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-19",
+        contractor_id: "contractor-19",
+        scheduled_date: "2024-06-14",
+        start_time: "11:00",
+        visit_type: "follow_up"
+      },
+      meta: {
+        id: "visit-followup",
+        by: "consultant-19",
+        timestamp: 1700000018000,
+        action_id: "cmd-req-followup"
+      }
+    }
+    expect ok
+    assert record.visit_type == "follow_up"
+  }
+}
+
+test request_with_project_kickoff_type {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-20",
+        contractor_id: "contractor-20",
+        scheduled_date: "2024-06-16",
+        start_time: "08:00",
+        visit_type: "project_kickoff"
+      },
+      meta: {
+        id: "visit-kickoff",
+        by: "consultant-20",
+        timestamp: 1700000019000,
+        action_id: "cmd-req-kickoff"
+      }
+    }
+    expect ok
+    assert record.visit_type == "project_kickoff"
+  }
+}
+
+test reschedule_from_requested {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-21",
+        contractor_id: "contractor-21",
+        scheduled_date: "2024-06-20",
+        start_time: "09:00",
+        end_time: "10:00"
+      },
+      meta: {
+        id: "visit-resched-req",
+        by: "consultant-21",
+        timestamp: 1700000020000,
+        action_id: "cmd-req-rr"
+      }
+    }
+    expect ok
+    assert record.status == "requested"
+  }
+
+  run reschedule {
+    request {
+      name: "reschedule_visit",
+      params: {
+        scheduled_date: "2024-06-25",
+        start_time: "14:00",
+        end_time: "15:00"
+      },
+      meta: {
+        id: "visit-resched-req",
+        by: "consultant-21",
+        timestamp: 1700000020100,
+        action_id: "cmd-resched-rr"
+      }
+    }
+    expect ok
+    assert record.scheduled_date == "2024-06-25"
+    assert record.start_time == "14:00"
+    assert record.end_time == "15:00"
+    assert record.status == "requested"
+    assert events[0].name == "visit_rescheduled"
+  }
+}
+
+test reschedule_then_confirm_full_cycle {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-22",
+        contractor_id: "contractor-22",
+        scheduled_date: "2024-07-01",
+        start_time: "10:00",
+        end_time: "11:00"
+      },
+      meta: {
+        id: "visit-resched-cycle",
+        by: "consultant-22",
+        timestamp: 1700000021000,
+        action_id: "cmd-req-rc"
+      }
+    }
+    expect ok
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-resched-cycle",
+        by: "contractor-22",
+        timestamp: 1700000021100,
+        action_id: "cmd-confirm-rc"
+      }
+    }
+    expect ok
+    assert record.status == "confirmed"
+  }
+
+  run reschedule {
+    request {
+      name: "reschedule_visit",
+      params: {
+        scheduled_date: "2024-07-05",
+        start_time: "15:00",
+        end_time: "16:00"
+      },
+      meta: {
+        id: "visit-resched-cycle",
+        by: "consultant-22",
+        timestamp: 1700000021200,
+        action_id: "cmd-resched-rc"
+      }
+    }
+    expect ok
+    assert record.status == "requested"
+    assert record.scheduled_date == "2024-07-05"
+  }
+
+  run reconfirm {
+    request {
+      name: "confirm_visit",
+      params: {
+        contractor_notes: "Confirmed for new date"
+      },
+      meta: {
+        id: "visit-resched-cycle",
+        by: "contractor-22",
+        timestamp: 1700000021300,
+        action_id: "cmd-reconfirm-rc"
+      }
+    }
+    expect ok
+    assert record.status == "confirmed"
+    assert record.contractor_notes == "Confirmed for new date"
+  }
+
+  run start {
+    request {
+      name: "start_visit",
+      params: {},
+      meta: {
+        id: "visit-resched-cycle",
+        by: "contractor-22",
+        timestamp: 1700000021400,
+        action_id: "cmd-start-rc"
+      }
+    }
+    expect ok
+    assert record.status == "in_progress"
+  }
+
+  run complete {
+    request {
+      name: "complete_visit",
+      params: {
+        contractor_notes: "All done"
+      },
+      meta: {
+        id: "visit-resched-cycle",
+        by: "contractor-22",
+        timestamp: 1700000021500,
+        action_id: "cmd-complete-rc"
+      }
+    }
+    expect ok
+    assert record.status == "completed"
+  }
+}
+
+test cannot_reschedule_cancelled {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-23",
+        contractor_id: "contractor-23",
+        scheduled_date: "2024-07-10",
+        start_time: "09:00"
+      },
+      meta: {
+        id: "visit-resched-cancel",
+        by: "consultant-23",
+        timestamp: 1700000022000,
+        action_id: "cmd-req-rsc"
+      }
+    }
+    expect ok
+  }
+
+  run cancel {
+    request {
+      name: "cancel_visit",
+      params: {
+        cancellation_reason: "Changed plans"
+      },
+      meta: {
+        id: "visit-resched-cancel",
+        by: "consultant-23",
+        timestamp: 1700000022100,
+        action_id: "cmd-cancel-rsc"
+      }
+    }
+    expect ok
+  }
+
+  run reschedule_fails {
+    request {
+      name: "reschedule_visit",
+      params: {
+        scheduled_date: "2024-07-15",
+        start_time: "10:00"
+      },
+      meta: {
+        id: "visit-resched-cancel",
+        by: "consultant-23",
+        timestamp: 1700000022200,
+        action_id: "cmd-resched-rsc"
+      }
+    }
+    expect error "can_reschedule"
+  }
+}
+
+test cannot_reschedule_completed {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-24",
+        contractor_id: "contractor-24",
+        scheduled_date: "2024-07-12",
+        start_time: "10:00"
+      },
+      meta: {
+        id: "visit-resched-done",
+        by: "consultant-24",
+        timestamp: 1700000023000,
+        action_id: "cmd-req-rsd"
+      }
+    }
+    expect ok
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-resched-done",
+        by: "contractor-24",
+        timestamp: 1700000023100,
+        action_id: "cmd-confirm-rsd"
+      }
+    }
+    expect ok
+  }
+
+  run start {
+    request {
+      name: "start_visit",
+      params: {},
+      meta: {
+        id: "visit-resched-done",
+        by: "contractor-24",
+        timestamp: 1700000023200,
+        action_id: "cmd-start-rsd"
+      }
+    }
+    expect ok
+  }
+
+  run complete {
+    request {
+      name: "complete_visit",
+      params: {},
+      meta: {
+        id: "visit-resched-done",
+        by: "contractor-24",
+        timestamp: 1700000023300,
+        action_id: "cmd-complete-rsd"
+      }
+    }
+    expect ok
+  }
+
+  run reschedule_fails {
+    request {
+      name: "reschedule_visit",
+      params: {
+        scheduled_date: "2024-07-20",
+        start_time: "11:00"
+      },
+      meta: {
+        id: "visit-resched-done",
+        by: "consultant-24",
+        timestamp: 1700000023400,
+        action_id: "cmd-resched-rsd"
+      }
+    }
+    expect error "can_reschedule"
+  }
+}
+
+test cannot_cancel_in_progress {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-25",
+        contractor_id: "contractor-25",
+        scheduled_date: "2024-07-15",
+        start_time: "09:00"
+      },
+      meta: {
+        id: "visit-cancel-ip",
+        by: "consultant-25",
+        timestamp: 1700000024000,
+        action_id: "cmd-req-cip"
+      }
+    }
+    expect ok
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-cancel-ip",
+        by: "contractor-25",
+        timestamp: 1700000024100,
+        action_id: "cmd-confirm-cip"
+      }
+    }
+    expect ok
+  }
+
+  run start {
+    request {
+      name: "start_visit",
+      params: {},
+      meta: {
+        id: "visit-cancel-ip",
+        by: "contractor-25",
+        timestamp: 1700000024200,
+        action_id: "cmd-start-cip"
+      }
+    }
+    expect ok
+    assert record.status == "in_progress"
+  }
+
+  run cancel_fails {
+    request {
+      name: "cancel_visit",
+      params: {
+        cancellation_reason: "Too late"
+      },
+      meta: {
+        id: "visit-cancel-ip",
+        by: "consultant-25",
+        timestamp: 1700000024300,
+        action_id: "cmd-cancel-cip"
+      }
+    }
+    expect error "can_cancel"
+  }
+}
+
+test cannot_start_cancelled {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-26",
+        contractor_id: "contractor-26",
+        scheduled_date: "2024-07-18",
+        start_time: "10:00"
+      },
+      meta: {
+        id: "visit-start-cancel",
+        by: "consultant-26",
+        timestamp: 1700000025000,
+        action_id: "cmd-req-sc"
+      }
+    }
+    expect ok
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-start-cancel",
+        by: "contractor-26",
+        timestamp: 1700000025100,
+        action_id: "cmd-confirm-sc"
+      }
+    }
+    expect ok
+  }
+
+  run cancel {
+    request {
+      name: "cancel_visit",
+      params: {},
+      meta: {
+        id: "visit-start-cancel",
+        by: "consultant-26",
+        timestamp: 1700000025200,
+        action_id: "cmd-cancel-sc"
+      }
+    }
+    expect ok
+    assert record.status == "cancelled"
+  }
+
+  run start_fails {
+    request {
+      name: "start_visit",
+      params: {},
+      meta: {
+        id: "visit-start-cancel",
+        by: "contractor-26",
+        timestamp: 1700000025300,
+        action_id: "cmd-start-sc"
+      }
+    }
+    expect error "can_start"
+  }
+}
+
+test cannot_no_show_in_progress {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-27",
+        contractor_id: "contractor-27",
+        scheduled_date: "2024-07-20",
+        start_time: "11:00"
+      },
+      meta: {
+        id: "visit-noshow-ip",
+        by: "consultant-27",
+        timestamp: 1700000026000,
+        action_id: "cmd-req-nsip"
+      }
+    }
+    expect ok
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-noshow-ip",
+        by: "contractor-27",
+        timestamp: 1700000026100,
+        action_id: "cmd-confirm-nsip"
+      }
+    }
+    expect ok
+  }
+
+  run start {
+    request {
+      name: "start_visit",
+      params: {},
+      meta: {
+        id: "visit-noshow-ip",
+        by: "contractor-27",
+        timestamp: 1700000026200,
+        action_id: "cmd-start-nsip"
+      }
+    }
+    expect ok
+    assert record.status == "in_progress"
+  }
+
+  run no_show_fails {
+    request {
+      name: "mark_no_show",
+      params: {},
+      meta: {
+        id: "visit-noshow-ip",
+        by: "contractor-27",
+        timestamp: 1700000026300,
+        action_id: "cmd-noshow-nsip"
+      }
+    }
+    expect error "can_mark_no_show"
+  }
+}
+
+test cannot_no_show_cancelled {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-28",
+        contractor_id: "contractor-28",
+        scheduled_date: "2024-07-22",
+        start_time: "09:00"
+      },
+      meta: {
+        id: "visit-noshow-cancel",
+        by: "consultant-28",
+        timestamp: 1700000027000,
+        action_id: "cmd-req-nsc"
+      }
+    }
+    expect ok
+  }
+
+  run cancel {
+    request {
+      name: "cancel_visit",
+      params: {},
+      meta: {
+        id: "visit-noshow-cancel",
+        by: "consultant-28",
+        timestamp: 1700000027100,
+        action_id: "cmd-cancel-nsc"
+      }
+    }
+    expect ok
+  }
+
+  run no_show_fails {
+    request {
+      name: "mark_no_show",
+      params: {},
+      meta: {
+        id: "visit-noshow-cancel",
+        by: "contractor-28",
+        timestamp: 1700000027200,
+        action_id: "cmd-noshow-nsc"
+      }
+    }
+    expect error "can_mark_no_show"
+  }
+}
+
+test cannot_confirm_cancelled {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-29",
+        contractor_id: "contractor-29",
+        scheduled_date: "2024-07-25",
+        start_time: "10:00"
+      },
+      meta: {
+        id: "visit-confirm-cancel",
+        by: "consultant-29",
+        timestamp: 1700000028000,
+        action_id: "cmd-req-cc2"
+      }
+    }
+    expect ok
+  }
+
+  run cancel {
+    request {
+      name: "cancel_visit",
+      params: {},
+      meta: {
+        id: "visit-confirm-cancel",
+        by: "consultant-29",
+        timestamp: 1700000028100,
+        action_id: "cmd-cancel-cc2"
+      }
+    }
+    expect ok
+  }
+
+  run confirm_fails {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-confirm-cancel",
+        by: "contractor-29",
+        timestamp: 1700000028200,
+        action_id: "cmd-confirm-cc2"
+      }
+    }
+    expect error "can_confirm"
+  }
+}
+
+test create_event_fields {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-30",
+        organization_id: "org-30",
+        contractor_id: "contractor-30",
+        referral_id: "ref-30",
+        homeowner_name: "Test Owner",
+        homeowner_email: "test@example.com",
+        homeowner_phone: "555-3000",
+        scheduled_date: "2024-08-01",
+        start_time: "09:00",
+        end_time: "10:00",
+        visit_type: "estimate",
+        location_street: "456 Elm St",
+        location_city: "Portland",
+        location_state: "OR",
+        location_zip: "97201",
+        homeowner_notes: "Ring doorbell twice"
+      },
+      meta: {
+        id: "visit-event-fields",
+        by: "consultant-30",
+        timestamp: 1700000029000,
+        action_id: "cmd-req-ef"
+      }
+    }
+    expect ok
+    assert events.len == 1
+    assert events[0].name == "visit_requested"
+    assert events[0].data.project_id == "proj-30"
+    assert events[0].data.organization_id == "org-30"
+    assert events[0].data.contractor_id == "contractor-30"
+    assert events[0].data.referral_id == "ref-30"
+    assert events[0].data.homeowner_name == "Test Owner"
+    assert events[0].data.scheduled_date == "2024-08-01"
+    assert events[0].data.start_time == "09:00"
+    assert events[0].data.end_time == "10:00"
+    assert events[0].data.visit_type == "estimate"
+    assert events[0].data.status == "requested"
+    assert events[0].data.location_street == "456 Elm St"
+    assert events[0].data.homeowner_notes == "Ring doorbell twice"
+    assert events[0].data.contractor_notes == ""
+    assert events[0].data.cancellation_reason == ""
+  }
+}
+
+test notes_update_on_completed_visit {
+  run request {
+    request {
+      name: "request_visit",
+      params: {
+        project_id: "proj-31",
+        contractor_id: "contractor-31",
+        scheduled_date: "2024-08-05",
+        start_time: "10:00"
+      },
+      meta: {
+        id: "visit-notes-done",
+        by: "consultant-31",
+        timestamp: 1700000030000,
+        action_id: "cmd-req-nd"
+      }
+    }
+    expect ok
+  }
+
+  run confirm {
+    request {
+      name: "confirm_visit",
+      params: {},
+      meta: {
+        id: "visit-notes-done",
+        by: "contractor-31",
+        timestamp: 1700000030100,
+        action_id: "cmd-confirm-nd"
+      }
+    }
+    expect ok
+  }
+
+  run start {
+    request {
+      name: "start_visit",
+      params: {},
+      meta: {
+        id: "visit-notes-done",
+        by: "contractor-31",
+        timestamp: 1700000030200,
+        action_id: "cmd-start-nd"
+      }
+    }
+    expect ok
+  }
+
+  run complete {
+    request {
+      name: "complete_visit",
+      params: {},
+      meta: {
+        id: "visit-notes-done",
+        by: "contractor-31",
+        timestamp: 1700000030300,
+        action_id: "cmd-complete-nd"
+      }
+    }
+    expect ok
+    assert record.status == "completed"
+  }
+
+  run add_homeowner_notes {
+    request {
+      name: "update_homeowner_notes",
+      params: {
+        homeowner_notes: "Great visit, very professional"
+      },
+      meta: {
+        id: "visit-notes-done",
+        by: "homeowner-31",
+        timestamp: 1700000030400,
+        action_id: "cmd-ho-notes-nd"
+      }
+    }
+    expect ok
+    assert record.homeowner_notes == "Great visit, very professional"
+  }
+
+  run add_contractor_notes {
+    request {
+      name: "update_contractor_notes",
+      params: {
+        contractor_notes: "Follow-up needed for plumbing"
+      },
+      meta: {
+        id: "visit-notes-done",
+        by: "contractor-31",
+        timestamp: 1700000030500,
+        action_id: "cmd-co-notes-nd"
+      }
+    }
+    expect ok
+    assert record.contractor_notes == "Follow-up needed for plumbing"
+  }
+}

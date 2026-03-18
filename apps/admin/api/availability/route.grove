@@ -1,0 +1,19 @@
+route {
+  GET list {
+    data records {
+      query availability.list_availabilities { }
+    }
+  }
+
+  POST create_availability {
+    data result {
+      invoke availability.create_availability {
+        user_id: input.body.user_id,
+        organization_id: input.body.organization_id,
+        day_of_week: input.body.day_of_week,
+        start_time: input.body.start_time,
+        end_time: input.body.end_time
+      }
+    }
+  }
+}

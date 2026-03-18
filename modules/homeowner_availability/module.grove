@@ -1,0 +1,208 @@
+query list_homeowner_availabilities {
+  gsql {
+    SELECT id, project_id, homeowner_name, homeowner_email, available_date,
+           start_time, end_time, status, visit_id, notes, created_at
+    FROM homeowner_availability ORDER BY created_at DESC
+  }
+  output: List<Object>
+}
+
+query get_homeowner_availability {
+  args {
+    homeowner_availability_id: String
+  }
+  sql {
+    SELECT id, project_id, homeowner_name, homeowner_email, homeowner_phone,
+           available_date, start_time, end_time, status, visit_id, notes, created_at
+    FROM homeowner_availability WHERE id = @homeowner_availability_id
+  }
+  output: Object
+}
+
+/// A date-specific availability window submitted by a homeowner for a project.
+/// Similar to a Calendly invitee selecting available times — the homeowner
+/// declares when they can receive a contractor/consultant visit, and the
+/// professional picks an overlapping slot to book.
+///
+/// Lifecycle: open → booked / withdrawn / expired
+record {
+  /// The project this availability is for.
+  project_id: String @searchable
+  /// The homeowner's name (denormalized for display).
+  homeowner_name: String = "" @searchable
+  /// The homeowner's email (denormalized for notifications).
+  homeowner_email: String = ""
+  /// The homeowner's phone number.
+  homeowner_phone: String = ""
+  /// The specific date the homeowner is available (ISO format, e.g. "2024-04-15").
+  available_date: String @searchable
+  /// Earliest time the homeowner is available on this date (HH:MM, 24-hour).
+  start_time: String
+  /// Latest time the homeowner is available on this date (HH:MM, 24-hour).
+  end_time: String
+  /// Current status of this availability window.
+  status: String = "open" @searchable
+  /// The visit that was booked against this window, if any.
+  visit_id: String = ""
+  /// Optional notes from the homeowner (e.g. "prefer morning", "dog will be outside").
+  notes: String = ""
+}
+
+/// Availability must be tied to a project.
+validate project_required {
+  params.project_id != ""
+}
+
+/// A date must be provided.
+validate date_required {
+  params.available_date != ""
+}
+
+/// A start time must be provided.
+validate start_time_required {
+  params.start_time != ""
+}
+
+/// An end time must be provided.
+validate end_time_required {
+  params.end_time != ""
+}
+
+/// The window must be open to book against it.
+validate is_open {
+  record.status == "open"
+}
+
+/// The window must be open to withdraw it.
+validate can_withdraw {
+  record.status == "open"
+}
+
+/// The window must be open to expire it.
+validate can_expire {
+  record.status == "open"
+}
+
+/// The window must be open to update it.
+validate can_update {
+  record.status == "open"
+}
+
+/// Raised when a homeowner submits a new availability window.
+event homeowner_availability_submitted {
+  project_id: String
+  homeowner_name: String
+  homeowner_email: String
+  homeowner_phone: String
+  available_date: String
+  start_time: String
+  end_time: String
+  status: String
+  visit_id: String
+  notes: String
+}
+
+/// Raised when the homeowner updates the time range or notes on an open window.
+event homeowner_availability_updated {
+  start_time: String
+  end_time: String
+  notes: String
+}
+
+/// Raised when a visit is booked against this window.
+event homeowner_availability_booked {
+  status: String
+  visit_id: String
+}
+
+/// Raised when the homeowner withdraws an open window.
+event homeowner_availability_withdrawn {
+  status: String
+}
+
+/// Raised when an open window passes its date without being booked.
+event homeowner_availability_expired {
+  status: String
+}
+
+/// The homeowner submits a date-specific availability window for their project.
+/// The window starts in "open" status, visible to contractors/consultants.
+@create
+action submit_availability {
+  project_id: String
+  homeowner_name: String = ""
+  homeowner_email: String = ""
+  homeowner_phone: String = ""
+  available_date: String
+  start_time: String
+  end_time: String
+  notes: String = ""
+  validate project_required
+  validate date_required
+  validate start_time_required
+  validate end_time_required
+  apply {
+    emit homeowner_availability_submitted {
+      project_id: params.project_id
+      homeowner_name: params.homeowner_name
+      homeowner_email: params.homeowner_email
+      homeowner_phone: params.homeowner_phone
+      available_date: params.available_date
+      start_time: params.start_time
+      end_time: params.end_time
+      status: "open"
+      visit_id: ""
+      notes: params.notes
+    }
+  }
+}
+
+/// Updates the time range or notes on an open availability window.
+/// Only allowed while the window is still open.
+action update_availability {
+  start_time: String = ""
+  end_time: String = ""
+  notes: String = ""
+  validate can_update
+  apply {
+    emit homeowner_availability_updated {
+      start_time: params.start_time
+      end_time: params.end_time
+      notes: params.notes
+    }
+  }
+}
+
+/// Marks this window as booked when a visit is scheduled against it.
+/// Records the visit ID for cross-reference.
+action mark_booked {
+  visit_id: String
+  validate is_open
+  apply {
+    emit homeowner_availability_booked {
+      status: "booked"
+      visit_id: params.visit_id
+    }
+  }
+}
+
+/// The homeowner withdraws an availability window they no longer want.
+action withdraw_availability {
+  validate can_withdraw
+  apply {
+    emit homeowner_availability_withdrawn {
+      status: "withdrawn"
+    }
+  }
+}
+
+/// Expires an open window that has passed its date without being booked.
+/// Typically triggered by the system or an admin.
+action expire_availability {
+  validate can_expire
+  apply {
+    emit homeowner_availability_expired {
+      status: "expired"
+    }
+  }
+}

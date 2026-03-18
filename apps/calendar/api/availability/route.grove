@@ -1,0 +1,9 @@
+route {
+  auth public
+
+  GET list {
+    data records {
+      query availability.list_availabilities { }
+    }
+  }
+}

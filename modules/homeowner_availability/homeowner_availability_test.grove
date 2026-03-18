@@ -1,0 +1,1072 @@
+module homeowner_availability_test
+
+test submit_and_book_lifecycle {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-1",
+        homeowner_name: "Jane Smith",
+        homeowner_email: "jane@example.com",
+        homeowner_phone: "555-0100",
+        available_date: "2024-04-15",
+        start_time: "09:00",
+        end_time: "14:00",
+        notes: "Prefer morning if possible"
+      },
+      meta: {
+        id: "ha-1",
+        by: "homeowner-1",
+        timestamp: 1700000000000,
+        action_id: "cmd-submit-ha"
+      }
+    }
+    expect ok
+    assert record.project_id == "proj-1"
+    assert record.homeowner_name == "Jane Smith"
+    assert record.homeowner_email == "jane@example.com"
+    assert record.available_date == "2024-04-15"
+    assert record.start_time == "09:00"
+    assert record.end_time == "14:00"
+    assert record.status == "open"
+    assert record.visit_id == ""
+    assert record.notes == "Prefer morning if possible"
+    assert events.len == 1
+    assert events[0].name == "homeowner_availability_submitted"
+  }
+
+  run book {
+    request {
+      name: "mark_booked",
+      params: {
+        visit_id: "visit-101"
+      },
+      meta: {
+        id: "ha-1",
+        by: "consultant-1",
+        timestamp: 1700000000100,
+        action_id: "cmd-book-ha"
+      }
+    }
+    expect ok
+    assert record.status == "booked"
+    assert record.visit_id == "visit-101"
+    assert events[0].name == "homeowner_availability_booked"
+  }
+}
+
+test submit_multiple_windows {
+  run window_1 {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-2",
+        homeowner_name: "Bob Jones",
+        available_date: "2024-04-16",
+        start_time: "10:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "ha-multi-1",
+        by: "homeowner-2",
+        timestamp: 1700000001000,
+        action_id: "cmd-submit-multi-1"
+      }
+    }
+    expect ok
+    assert record.status == "open"
+    assert record.available_date == "2024-04-16"
+  }
+}
+
+test update_open_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-3",
+        available_date: "2024-04-18",
+        start_time: "08:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "ha-update",
+        by: "homeowner-3",
+        timestamp: 1700000002000,
+        action_id: "cmd-submit-update"
+      }
+    }
+    expect ok
+  }
+
+  run update {
+    request {
+      name: "update_availability",
+      params: {
+        start_time: "10:00",
+        end_time: "15:00",
+        notes: "Changed my schedule"
+      },
+      meta: {
+        id: "ha-update",
+        by: "homeowner-3",
+        timestamp: 1700000002100,
+        action_id: "cmd-update-ha"
+      }
+    }
+    expect ok
+    assert record.start_time == "10:00"
+    assert record.end_time == "15:00"
+    assert record.notes == "Changed my schedule"
+    assert events[0].name == "homeowner_availability_updated"
+  }
+}
+
+test withdraw_open_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-4",
+        available_date: "2024-04-20",
+        start_time: "09:00",
+        end_time: "17:00"
+      },
+      meta: {
+        id: "ha-withdraw",
+        by: "homeowner-4",
+        timestamp: 1700000003000,
+        action_id: "cmd-submit-withdraw"
+      }
+    }
+    expect ok
+  }
+
+  run withdraw {
+    request {
+      name: "withdraw_availability",
+      params: {},
+      meta: {
+        id: "ha-withdraw",
+        by: "homeowner-4",
+        timestamp: 1700000003100,
+        action_id: "cmd-withdraw-ha"
+      }
+    }
+    expect ok
+    assert record.status == "withdrawn"
+    assert events[0].name == "homeowner_availability_withdrawn"
+  }
+}
+
+test expire_open_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-5",
+        available_date: "2024-03-01",
+        start_time: "09:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "ha-expire",
+        by: "homeowner-5",
+        timestamp: 1700000004000,
+        action_id: "cmd-submit-expire"
+      }
+    }
+    expect ok
+  }
+
+  run expire {
+    request {
+      name: "expire_availability",
+      params: {},
+      meta: {
+        id: "ha-expire",
+        by: "system",
+        timestamp: 1700000004100,
+        action_id: "cmd-expire-ha"
+      }
+    }
+    expect ok
+    assert record.status == "expired"
+    assert events[0].name == "homeowner_availability_expired"
+  }
+}
+
+test cannot_book_withdrawn_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-6",
+        available_date: "2024-04-22",
+        start_time: "10:00",
+        end_time: "14:00"
+      },
+      meta: {
+        id: "ha-book-withdrawn",
+        by: "homeowner-6",
+        timestamp: 1700000005000,
+        action_id: "cmd-submit-bw"
+      }
+    }
+    expect ok
+  }
+
+  run withdraw {
+    request {
+      name: "withdraw_availability",
+      params: {},
+      meta: {
+        id: "ha-book-withdrawn",
+        by: "homeowner-6",
+        timestamp: 1700000005100,
+        action_id: "cmd-withdraw-bw"
+      }
+    }
+    expect ok
+  }
+
+  run book_fails {
+    request {
+      name: "mark_booked",
+      params: {
+        visit_id: "visit-999"
+      },
+      meta: {
+        id: "ha-book-withdrawn",
+        by: "consultant-6",
+        timestamp: 1700000005200,
+        action_id: "cmd-book-bw"
+      }
+    }
+    expect error "is_open"
+  }
+}
+
+test cannot_book_already_booked {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-7",
+        available_date: "2024-04-25",
+        start_time: "09:00",
+        end_time: "11:00"
+      },
+      meta: {
+        id: "ha-double-book",
+        by: "homeowner-7",
+        timestamp: 1700000006000,
+        action_id: "cmd-submit-db"
+      }
+    }
+    expect ok
+  }
+
+  run book {
+    request {
+      name: "mark_booked",
+      params: {
+        visit_id: "visit-200"
+      },
+      meta: {
+        id: "ha-double-book",
+        by: "consultant-7",
+        timestamp: 1700000006100,
+        action_id: "cmd-book-db"
+      }
+    }
+    expect ok
+  }
+
+  run book_again_fails {
+    request {
+      name: "mark_booked",
+      params: {
+        visit_id: "visit-201"
+      },
+      meta: {
+        id: "ha-double-book",
+        by: "consultant-7",
+        timestamp: 1700000006200,
+        action_id: "cmd-book-again"
+      }
+    }
+    expect error "is_open"
+  }
+}
+
+test cannot_withdraw_booked_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-8",
+        available_date: "2024-04-28",
+        start_time: "13:00",
+        end_time: "17:00"
+      },
+      meta: {
+        id: "ha-withdraw-booked",
+        by: "homeowner-8",
+        timestamp: 1700000007000,
+        action_id: "cmd-submit-wb"
+      }
+    }
+    expect ok
+  }
+
+  run book {
+    request {
+      name: "mark_booked",
+      params: {
+        visit_id: "visit-300"
+      },
+      meta: {
+        id: "ha-withdraw-booked",
+        by: "consultant-8",
+        timestamp: 1700000007100,
+        action_id: "cmd-book-wb"
+      }
+    }
+    expect ok
+  }
+
+  run withdraw_fails {
+    request {
+      name: "withdraw_availability",
+      params: {},
+      meta: {
+        id: "ha-withdraw-booked",
+        by: "homeowner-8",
+        timestamp: 1700000007200,
+        action_id: "cmd-withdraw-wb"
+      }
+    }
+    expect error "can_withdraw"
+  }
+}
+
+test cannot_update_booked_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-9",
+        available_date: "2024-05-01",
+        start_time: "09:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "ha-update-booked",
+        by: "homeowner-9",
+        timestamp: 1700000008000,
+        action_id: "cmd-submit-ub"
+      }
+    }
+    expect ok
+  }
+
+  run book {
+    request {
+      name: "mark_booked",
+      params: {
+        visit_id: "visit-400"
+      },
+      meta: {
+        id: "ha-update-booked",
+        by: "consultant-9",
+        timestamp: 1700000008100,
+        action_id: "cmd-book-ub"
+      }
+    }
+    expect ok
+  }
+
+  run update_fails {
+    request {
+      name: "update_availability",
+      params: {
+        start_time: "10:00"
+      },
+      meta: {
+        id: "ha-update-booked",
+        by: "homeowner-9",
+        timestamp: 1700000008200,
+        action_id: "cmd-update-ub"
+      }
+    }
+    expect error "can_update"
+  }
+}
+
+test cannot_expire_booked_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-10",
+        available_date: "2024-05-05",
+        start_time: "10:00",
+        end_time: "15:00"
+      },
+      meta: {
+        id: "ha-expire-booked",
+        by: "homeowner-10",
+        timestamp: 1700000009000,
+        action_id: "cmd-submit-eb"
+      }
+    }
+    expect ok
+  }
+
+  run book {
+    request {
+      name: "mark_booked",
+      params: {
+        visit_id: "visit-500"
+      },
+      meta: {
+        id: "ha-expire-booked",
+        by: "consultant-10",
+        timestamp: 1700000009100,
+        action_id: "cmd-book-eb"
+      }
+    }
+    expect ok
+  }
+
+  run expire_fails {
+    request {
+      name: "expire_availability",
+      params: {},
+      meta: {
+        id: "ha-expire-booked",
+        by: "system",
+        timestamp: 1700000009200,
+        action_id: "cmd-expire-eb"
+      }
+    }
+    expect error "can_expire"
+  }
+}
+
+test submit_missing_project_fails {
+  run bad_submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "",
+        available_date: "2024-05-10",
+        start_time: "09:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "ha-bad-proj",
+        by: "homeowner-11",
+        timestamp: 1700000010000,
+        action_id: "cmd-bad-proj"
+      }
+    }
+    expect error "project_required"
+  }
+}
+
+test submit_missing_date_fails {
+  run bad_submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-12",
+        available_date: "",
+        start_time: "09:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "ha-bad-date",
+        by: "homeowner-12",
+        timestamp: 1700000011000,
+        action_id: "cmd-bad-date"
+      }
+    }
+    expect error "date_required"
+  }
+}
+
+test submit_missing_start_time_fails {
+  run bad_submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-13",
+        available_date: "2024-05-10",
+        start_time: "",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "ha-bad-start",
+        by: "homeowner-13",
+        timestamp: 1700000012000,
+        action_id: "cmd-bad-start"
+      }
+    }
+    expect error "start_time_required"
+  }
+}
+
+test submit_missing_end_time_fails {
+  run bad_submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-14",
+        available_date: "2024-05-10",
+        start_time: "09:00",
+        end_time: ""
+      },
+      meta: {
+        id: "ha-bad-end",
+        by: "homeowner-14",
+        timestamp: 1700000013000,
+        action_id: "cmd-bad-end"
+      }
+    }
+    expect error "end_time_required"
+  }
+}
+
+test cannot_withdraw_expired_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-15",
+        available_date: "2024-03-01",
+        start_time: "09:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "ha-withdraw-expired",
+        by: "homeowner-15",
+        timestamp: 1700000014000,
+        action_id: "cmd-submit-we"
+      }
+    }
+    expect ok
+  }
+
+  run expire {
+    request {
+      name: "expire_availability",
+      params: {},
+      meta: {
+        id: "ha-withdraw-expired",
+        by: "system",
+        timestamp: 1700000014100,
+        action_id: "cmd-expire-we"
+      }
+    }
+    expect ok
+    assert record.status == "expired"
+  }
+
+  run withdraw_fails {
+    request {
+      name: "withdraw_availability",
+      params: {},
+      meta: {
+        id: "ha-withdraw-expired",
+        by: "homeowner-15",
+        timestamp: 1700000014200,
+        action_id: "cmd-withdraw-we"
+      }
+    }
+    expect error "can_withdraw"
+  }
+}
+
+test cannot_update_expired_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-16",
+        available_date: "2024-03-05",
+        start_time: "10:00",
+        end_time: "14:00"
+      },
+      meta: {
+        id: "ha-update-expired",
+        by: "homeowner-16",
+        timestamp: 1700000015000,
+        action_id: "cmd-submit-ue"
+      }
+    }
+    expect ok
+  }
+
+  run expire {
+    request {
+      name: "expire_availability",
+      params: {},
+      meta: {
+        id: "ha-update-expired",
+        by: "system",
+        timestamp: 1700000015100,
+        action_id: "cmd-expire-ue"
+      }
+    }
+    expect ok
+  }
+
+  run update_fails {
+    request {
+      name: "update_availability",
+      params: {
+        start_time: "11:00"
+      },
+      meta: {
+        id: "ha-update-expired",
+        by: "homeowner-16",
+        timestamp: 1700000015200,
+        action_id: "cmd-update-ue"
+      }
+    }
+    expect error "can_update"
+  }
+}
+
+test cannot_book_expired_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-17",
+        available_date: "2024-03-10",
+        start_time: "08:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "ha-book-expired",
+        by: "homeowner-17",
+        timestamp: 1700000016000,
+        action_id: "cmd-submit-be"
+      }
+    }
+    expect ok
+  }
+
+  run expire {
+    request {
+      name: "expire_availability",
+      params: {},
+      meta: {
+        id: "ha-book-expired",
+        by: "system",
+        timestamp: 1700000016100,
+        action_id: "cmd-expire-be"
+      }
+    }
+    expect ok
+  }
+
+  run book_fails {
+    request {
+      name: "mark_booked",
+      params: {
+        visit_id: "visit-600"
+      },
+      meta: {
+        id: "ha-book-expired",
+        by: "consultant-17",
+        timestamp: 1700000016200,
+        action_id: "cmd-book-be"
+      }
+    }
+    expect error "is_open"
+  }
+}
+
+test cannot_expire_expired_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-18",
+        available_date: "2024-03-15",
+        start_time: "09:00",
+        end_time: "11:00"
+      },
+      meta: {
+        id: "ha-expire-expired",
+        by: "homeowner-18",
+        timestamp: 1700000017000,
+        action_id: "cmd-submit-ee"
+      }
+    }
+    expect ok
+  }
+
+  run expire {
+    request {
+      name: "expire_availability",
+      params: {},
+      meta: {
+        id: "ha-expire-expired",
+        by: "system",
+        timestamp: 1700000017100,
+        action_id: "cmd-expire-ee"
+      }
+    }
+    expect ok
+  }
+
+  run expire_again_fails {
+    request {
+      name: "expire_availability",
+      params: {},
+      meta: {
+        id: "ha-expire-expired",
+        by: "system",
+        timestamp: 1700000017200,
+        action_id: "cmd-expire-ee2"
+      }
+    }
+    expect error "can_expire"
+  }
+}
+
+test cannot_update_withdrawn_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-19",
+        available_date: "2024-05-20",
+        start_time: "10:00",
+        end_time: "15:00"
+      },
+      meta: {
+        id: "ha-update-withdrawn",
+        by: "homeowner-19",
+        timestamp: 1700000018000,
+        action_id: "cmd-submit-uw"
+      }
+    }
+    expect ok
+  }
+
+  run withdraw {
+    request {
+      name: "withdraw_availability",
+      params: {},
+      meta: {
+        id: "ha-update-withdrawn",
+        by: "homeowner-19",
+        timestamp: 1700000018100,
+        action_id: "cmd-withdraw-uw"
+      }
+    }
+    expect ok
+  }
+
+  run update_fails {
+    request {
+      name: "update_availability",
+      params: {
+        start_time: "11:00"
+      },
+      meta: {
+        id: "ha-update-withdrawn",
+        by: "homeowner-19",
+        timestamp: 1700000018200,
+        action_id: "cmd-update-uw"
+      }
+    }
+    expect error "can_update"
+  }
+}
+
+test cannot_expire_withdrawn_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-20",
+        available_date: "2024-05-22",
+        start_time: "09:00",
+        end_time: "13:00"
+      },
+      meta: {
+        id: "ha-expire-withdrawn",
+        by: "homeowner-20",
+        timestamp: 1700000019000,
+        action_id: "cmd-submit-ew"
+      }
+    }
+    expect ok
+  }
+
+  run withdraw {
+    request {
+      name: "withdraw_availability",
+      params: {},
+      meta: {
+        id: "ha-expire-withdrawn",
+        by: "homeowner-20",
+        timestamp: 1700000019100,
+        action_id: "cmd-withdraw-ew"
+      }
+    }
+    expect ok
+  }
+
+  run expire_fails {
+    request {
+      name: "expire_availability",
+      params: {},
+      meta: {
+        id: "ha-expire-withdrawn",
+        by: "system",
+        timestamp: 1700000019200,
+        action_id: "cmd-expire-ew"
+      }
+    }
+    expect error "can_expire"
+  }
+}
+
+test cannot_withdraw_withdrawn_window {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-21",
+        available_date: "2024-05-25",
+        start_time: "08:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "ha-withdraw-withdrawn",
+        by: "homeowner-21",
+        timestamp: 1700000020000,
+        action_id: "cmd-submit-ww"
+      }
+    }
+    expect ok
+  }
+
+  run withdraw {
+    request {
+      name: "withdraw_availability",
+      params: {},
+      meta: {
+        id: "ha-withdraw-withdrawn",
+        by: "homeowner-21",
+        timestamp: 1700000020100,
+        action_id: "cmd-withdraw-ww"
+      }
+    }
+    expect ok
+  }
+
+  run withdraw_again_fails {
+    request {
+      name: "withdraw_availability",
+      params: {},
+      meta: {
+        id: "ha-withdraw-withdrawn",
+        by: "homeowner-21",
+        timestamp: 1700000020200,
+        action_id: "cmd-withdraw-ww2"
+      }
+    }
+    expect error "can_withdraw"
+  }
+}
+
+test cannot_book_withdrawn_by_update {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-22",
+        available_date: "2024-05-28",
+        start_time: "10:00",
+        end_time: "16:00"
+      },
+      meta: {
+        id: "ha-book-withdrawn2",
+        by: "homeowner-22",
+        timestamp: 1700000021000,
+        action_id: "cmd-submit-bw2"
+      }
+    }
+    expect ok
+  }
+
+  run withdraw {
+    request {
+      name: "withdraw_availability",
+      params: {},
+      meta: {
+        id: "ha-book-withdrawn2",
+        by: "homeowner-22",
+        timestamp: 1700000021100,
+        action_id: "cmd-withdraw-bw2"
+      }
+    }
+    expect ok
+  }
+
+  run book_fails {
+    request {
+      name: "mark_booked",
+      params: {
+        visit_id: "visit-700"
+      },
+      meta: {
+        id: "ha-book-withdrawn2",
+        by: "consultant-22",
+        timestamp: 1700000021200,
+        action_id: "cmd-book-bw2"
+      }
+    }
+    expect error "is_open"
+  }
+}
+
+test submit_minimal_params_defaults {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-23",
+        available_date: "2024-06-01",
+        start_time: "09:00",
+        end_time: "17:00"
+      },
+      meta: {
+        id: "ha-defaults",
+        by: "homeowner-23",
+        timestamp: 1700000022000,
+        action_id: "cmd-submit-defaults"
+      }
+    }
+    expect ok
+    assert record.project_id == "proj-23"
+    assert record.homeowner_name == ""
+    assert record.homeowner_email == ""
+    assert record.homeowner_phone == ""
+    assert record.available_date == "2024-06-01"
+    assert record.start_time == "09:00"
+    assert record.end_time == "17:00"
+    assert record.status == "open"
+    assert record.visit_id == ""
+    assert record.notes == ""
+  }
+}
+
+test create_event_fields {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-24",
+        homeowner_name: "Event Test",
+        homeowner_email: "event@example.com",
+        homeowner_phone: "555-2400",
+        available_date: "2024-06-05",
+        start_time: "10:00",
+        end_time: "14:00",
+        notes: "Back gate is open"
+      },
+      meta: {
+        id: "ha-event-fields",
+        by: "homeowner-24",
+        timestamp: 1700000023000,
+        action_id: "cmd-submit-ef"
+      }
+    }
+    expect ok
+    assert events.len == 1
+    assert events[0].name == "homeowner_availability_submitted"
+    assert events[0].data.project_id == "proj-24"
+    assert events[0].data.homeowner_name == "Event Test"
+    assert events[0].data.homeowner_email == "event@example.com"
+    assert events[0].data.homeowner_phone == "555-2400"
+    assert events[0].data.available_date == "2024-06-05"
+    assert events[0].data.start_time == "10:00"
+    assert events[0].data.end_time == "14:00"
+    assert events[0].data.status == "open"
+    assert events[0].data.visit_id == ""
+    assert events[0].data.notes == "Back gate is open"
+  }
+}
+
+test update_then_book {
+  run submit {
+    request {
+      name: "submit_availability",
+      params: {
+        project_id: "proj-25",
+        homeowner_name: "Update Book Test",
+        available_date: "2024-06-10",
+        start_time: "08:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "ha-update-book",
+        by: "homeowner-25",
+        timestamp: 1700000024000,
+        action_id: "cmd-submit-ub2"
+      }
+    }
+    expect ok
+  }
+
+  run update {
+    request {
+      name: "update_availability",
+      params: {
+        start_time: "09:00",
+        end_time: "13:00",
+        notes: "Updated window"
+      },
+      meta: {
+        id: "ha-update-book",
+        by: "homeowner-25",
+        timestamp: 1700000024100,
+        action_id: "cmd-update-ub2"
+      }
+    }
+    expect ok
+    assert record.start_time == "09:00"
+    assert record.end_time == "13:00"
+    assert record.notes == "Updated window"
+  }
+
+  run book {
+    request {
+      name: "mark_booked",
+      params: {
+        visit_id: "visit-800"
+      },
+      meta: {
+        id: "ha-update-book",
+        by: "consultant-25",
+        timestamp: 1700000024200,
+        action_id: "cmd-book-ub2"
+      }
+    }
+    expect ok
+    assert record.status == "booked"
+    assert record.visit_id == "visit-800"
+    assert record.start_time == "09:00"
+    assert record.end_time == "13:00"
+  }
+}

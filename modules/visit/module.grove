@@ -1,0 +1,346 @@
+query list_visits {
+  gsql {
+    SELECT id, project_id, organization_id, contractor_id, homeowner_name,
+           homeowner_email, scheduled_date, start_time, end_time, visit_type,
+           status, location_street, location_city, location_state, location_zip,
+           homeowner_notes, contractor_notes, cancellation_reason, created_at
+    FROM visit ORDER BY created_at DESC
+  }
+  output: List<Object>
+}
+
+query get_visit {
+  args {
+    visit_id: String
+  }
+  sql {
+    SELECT id, project_id, organization_id, contractor_id, referral_id,
+           homeowner_name, homeowner_email, homeowner_phone,
+           scheduled_date, start_time, end_time, visit_type, status,
+           location_street, location_city, location_state, location_zip,
+           homeowner_notes, contractor_notes, cancellation_reason, created_at
+    FROM visit WHERE id = @visit_id
+  }
+  output: Object
+}
+
+enum VisitType {
+  initial_consultation,
+  estimate,
+  site_inspection,
+  follow_up,
+  project_kickoff
+}
+
+/// A scheduled visit between a contractor/consultant and a homeowner.
+/// Visits follow a lifecycle: requested → confirmed → in_progress → completed.
+/// Visits can also be cancelled or marked as no-show from certain states.
+record {
+  /// The project this visit is associated with.
+  project_id: String @searchable
+  /// The contractor organization performing the visit.
+  organization_id: String = "" @searchable
+  /// The specific contractor or consultant conducting the visit.
+  contractor_id: String @searchable
+  /// The referral that originated this visit, if any.
+  referral_id: String = ""
+  /// Homeowner's name for this visit.
+  homeowner_name: String = "" @searchable
+  /// Homeowner's email for visit confirmations and reminders.
+  homeowner_email: String = ""
+  /// Homeowner's phone number.
+  homeowner_phone: String = ""
+  /// The scheduled date for the visit (ISO format date string).
+  scheduled_date: String @searchable
+  /// Start time in HH:MM format (24-hour).
+  start_time: String
+  /// End time in HH:MM format (24-hour).
+  end_time: String
+  /// The purpose of the visit.
+  visit_type: VisitType = VisitType.initial_consultation
+  /// Lifecycle status of the visit.
+  status: String = "requested" @searchable
+  /// Street address of the visit location.
+  location_street: String = ""
+  /// City of the visit location.
+  location_city: String = ""
+  /// State of the visit location.
+  location_state: String = ""
+  /// Zip code of the visit location.
+  location_zip: String = ""
+  /// Notes from the homeowner about the visit.
+  homeowner_notes: String = ""
+  /// Notes from the contractor about the visit.
+  contractor_notes: String = ""
+  /// Reason for cancellation, if cancelled.
+  cancellation_reason: String = ""
+}
+
+/// A visit must be linked to a project.
+validate project_required {
+  params.project_id != ""
+}
+
+/// A visit must have an assigned contractor.
+validate contractor_required {
+  params.contractor_id != ""
+}
+
+/// A visit must have a scheduled date.
+validate date_required {
+  params.scheduled_date != ""
+}
+
+/// A visit must have a start time.
+validate start_time_required {
+  params.start_time != ""
+}
+
+/// The visit must be in requested status to confirm.
+validate can_confirm {
+  record.status == "requested"
+}
+
+/// The visit must be confirmed before it can be started.
+validate can_start {
+  record.status == "confirmed"
+}
+
+/// The visit must be in progress to mark it complete.
+validate can_complete {
+  record.status == "in_progress"
+}
+
+/// The visit must be in requested or confirmed status to cancel.
+validate can_cancel {
+  record.status == "requested" || record.status == "confirmed"
+}
+
+/// The visit must be confirmed to mark as no-show.
+validate can_mark_no_show {
+  record.status == "confirmed"
+}
+
+/// The visit must be in requested or confirmed status to reschedule.
+validate can_reschedule {
+  record.status == "requested" || record.status == "confirmed"
+}
+
+/// Raised when a new visit is requested.
+event visit_requested {
+  project_id: String
+  organization_id: String
+  contractor_id: String
+  referral_id: String
+  homeowner_name: String
+  homeowner_email: String
+  homeowner_phone: String
+  scheduled_date: String
+  start_time: String
+  end_time: String
+  visit_type: VisitType
+  status: String
+  location_street: String
+  location_city: String
+  location_state: String
+  location_zip: String
+  homeowner_notes: String
+  contractor_notes: String
+  cancellation_reason: String
+}
+
+/// Raised when a contractor confirms a requested visit.
+event visit_confirmed {
+  status: String
+  contractor_notes: String
+}
+
+/// Raised when a contractor begins the on-site visit.
+event visit_started {
+  status: String
+}
+
+/// Raised when a visit is completed.
+event visit_completed {
+  status: String
+  contractor_notes: String
+}
+
+/// Raised when a visit is cancelled by either party.
+event visit_cancelled {
+  status: String
+  cancellation_reason: String
+}
+
+/// Raised when the homeowner does not show up for the visit.
+event visit_no_show {
+  status: String
+  contractor_notes: String
+}
+
+/// Raised when a visit is rescheduled to a new date/time.
+event visit_rescheduled {
+  scheduled_date: String
+  start_time: String
+  end_time: String
+  status: String
+}
+
+/// Raised when the homeowner updates their notes on a visit.
+event homeowner_notes_updated {
+  homeowner_notes: String
+}
+
+/// Raised when the contractor updates their notes on a visit.
+event contractor_notes_updated {
+  contractor_notes: String
+}
+
+/// Requests a new visit for a homeowner with a contractor.
+/// The visit starts in "requested" status awaiting contractor confirmation.
+@create
+action request_visit {
+  project_id: String
+  organization_id: String = ""
+  contractor_id: String
+  referral_id: String = ""
+  homeowner_name: String = ""
+  homeowner_email: String = ""
+  homeowner_phone: String = ""
+  scheduled_date: String
+  start_time: String
+  end_time: String = ""
+  visit_type: VisitType = VisitType.initial_consultation
+  location_street: String = ""
+  location_city: String = ""
+  location_state: String = ""
+  location_zip: String = ""
+  homeowner_notes: String = ""
+  validate project_required
+  validate contractor_required
+  validate date_required
+  validate start_time_required
+  apply {
+    emit visit_requested {
+      project_id: params.project_id
+      organization_id: params.organization_id
+      contractor_id: params.contractor_id
+      referral_id: params.referral_id
+      homeowner_name: params.homeowner_name
+      homeowner_email: params.homeowner_email
+      homeowner_phone: params.homeowner_phone
+      scheduled_date: params.scheduled_date
+      start_time: params.start_time
+      end_time: params.end_time
+      visit_type: params.visit_type
+      status: "requested"
+      location_street: params.location_street
+      location_city: params.location_city
+      location_state: params.location_state
+      location_zip: params.location_zip
+      homeowner_notes: params.homeowner_notes
+      contractor_notes: ""
+      cancellation_reason: ""
+    }
+  }
+}
+
+/// The contractor confirms a requested visit.
+action confirm_visit {
+  contractor_notes: String = ""
+  validate can_confirm
+  apply {
+    emit visit_confirmed {
+      status: "confirmed"
+      contractor_notes: params.contractor_notes
+    }
+  }
+}
+
+/// Marks the visit as in progress when the contractor arrives on site.
+action start_visit {
+  validate can_start
+  apply {
+    emit visit_started {
+      status: "in_progress"
+    }
+  }
+}
+
+/// Completes the visit after the on-site work or consultation is done.
+action complete_visit {
+  contractor_notes: String = ""
+  validate can_complete
+  apply {
+    emit visit_completed {
+      status: "completed"
+      contractor_notes: params.contractor_notes
+    }
+  }
+}
+
+/// Cancels a visit that has not yet started.
+/// Allowed from requested or confirmed status.
+action cancel_visit {
+  cancellation_reason: String = ""
+  validate can_cancel
+  apply {
+    emit visit_cancelled {
+      status: "cancelled"
+      cancellation_reason: params.cancellation_reason
+    }
+  }
+}
+
+/// Marks a confirmed visit as no-show when the homeowner doesn't appear.
+action mark_no_show {
+  contractor_notes: String = ""
+  validate can_mark_no_show
+  apply {
+    emit visit_no_show {
+      status: "no_show"
+      contractor_notes: params.contractor_notes
+    }
+  }
+}
+
+/// Reschedules a visit to a new date and time.
+/// The visit returns to "requested" status for re-confirmation.
+action reschedule_visit {
+  scheduled_date: String
+  start_time: String
+  end_time: String = ""
+  validate can_reschedule
+  validate date_required
+  validate start_time_required
+  apply {
+    emit visit_rescheduled {
+      scheduled_date: params.scheduled_date
+      start_time: params.start_time
+      end_time: params.end_time
+      status: "requested"
+    }
+  }
+}
+
+/// Updates the homeowner's notes on a visit.
+/// Can be called at any point in the visit lifecycle.
+action update_homeowner_notes {
+  homeowner_notes: String
+  apply {
+    emit homeowner_notes_updated {
+      homeowner_notes: params.homeowner_notes
+    }
+  }
+}
+
+/// Updates the contractor's notes on a visit.
+/// Can be called at any point in the visit lifecycle.
+action update_contractor_notes {
+  contractor_notes: String
+  apply {
+    emit contractor_notes_updated {
+      contractor_notes: params.contractor_notes
+    }
+  }
+}

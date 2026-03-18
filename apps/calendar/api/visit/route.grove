@@ -1,0 +1,30 @@
+route {
+  auth public
+
+  GET list {
+    data records {
+      query visit.list_visits { }
+    }
+  }
+
+  POST request_visit {
+    data result {
+      invoke visit.request_visit {
+        project_id: input.body.project_id,
+        contractor_id: input.body.contractor_id,
+        homeowner_name: input.body.homeowner_name,
+        homeowner_email: input.body.homeowner_email,
+        homeowner_phone: input.body.homeowner_phone,
+        scheduled_date: input.body.scheduled_date,
+        start_time: input.body.start_time,
+        end_time: input.body.end_time,
+        visit_type: input.body.visit_type,
+        location_street: input.body.location_street,
+        location_city: input.body.location_city,
+        location_state: input.body.location_state,
+        location_zip: input.body.location_zip,
+        homeowner_notes: input.body.homeowner_notes
+      }
+    }
+  }
+}

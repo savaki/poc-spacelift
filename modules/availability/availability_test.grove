@@ -1,0 +1,519 @@
+module availability_test
+
+test availability_create_and_update {
+  run create {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-1",
+        organization_id: "org-1",
+        day_of_week: "monday",
+        start_time: "09:00",
+        end_time: "17:00"
+      },
+      meta: {
+        id: "avail-1",
+        by: "contractor-1",
+        timestamp: 1700000000000,
+        action_id: "cmd-create-avail"
+      }
+    }
+    expect ok
+    assert record.user_id == "contractor-1"
+    assert record.organization_id == "org-1"
+    assert record.day_of_week == "monday"
+    assert record.start_time == "09:00"
+    assert record.end_time == "17:00"
+    assert record.status == "active"
+    assert events.len == 1
+    assert events[0].name == "availability_created"
+  }
+
+  run update {
+    request {
+      name: "update_availability",
+      params: {
+        start_time: "10:00",
+        end_time: "18:00"
+      },
+      meta: {
+        id: "avail-1",
+        by: "contractor-1",
+        timestamp: 1700000000100,
+        action_id: "cmd-update-avail"
+      }
+    }
+    expect ok
+    assert record.start_time == "10:00"
+    assert record.end_time == "18:00"
+    assert events[0].name == "availability_updated"
+  }
+}
+
+test availability_deactivate_and_reactivate {
+  run create {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-2",
+        day_of_week: "wednesday",
+        start_time: "08:00",
+        end_time: "16:00"
+      },
+      meta: {
+        id: "avail-2",
+        by: "contractor-2",
+        timestamp: 1700000001000,
+        action_id: "cmd-create-avail-2"
+      }
+    }
+    expect ok
+    assert record.status == "active"
+  }
+
+  run deactivate {
+    request {
+      name: "deactivate_availability",
+      params: {},
+      meta: {
+        id: "avail-2",
+        by: "contractor-2",
+        timestamp: 1700000001100,
+        action_id: "cmd-deactivate"
+      }
+    }
+    expect ok
+    assert record.status == "inactive"
+    assert events[0].name == "availability_deactivated"
+  }
+
+  run reactivate {
+    request {
+      name: "activate_availability",
+      params: {},
+      meta: {
+        id: "avail-2",
+        by: "contractor-2",
+        timestamp: 1700000001200,
+        action_id: "cmd-activate"
+      }
+    }
+    expect ok
+    assert record.status == "active"
+    assert events[0].name == "availability_activated"
+  }
+}
+
+test cannot_deactivate_inactive {
+  run create {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-3",
+        day_of_week: "friday",
+        start_time: "09:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "avail-3",
+        by: "contractor-3",
+        timestamp: 1700000002000,
+        action_id: "cmd-create-avail-3"
+      }
+    }
+    expect ok
+  }
+
+  run deactivate {
+    request {
+      name: "deactivate_availability",
+      params: {},
+      meta: {
+        id: "avail-3",
+        by: "contractor-3",
+        timestamp: 1700000002100,
+        action_id: "cmd-deactivate-3"
+      }
+    }
+    expect ok
+  }
+
+  run deactivate_again_fails {
+    request {
+      name: "deactivate_availability",
+      params: {},
+      meta: {
+        id: "avail-3",
+        by: "contractor-3",
+        timestamp: 1700000002200,
+        action_id: "cmd-deactivate-again"
+      }
+    }
+    expect error "is_active"
+  }
+}
+
+test cannot_activate_active {
+  run create {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-4",
+        day_of_week: "tuesday",
+        start_time: "13:00",
+        end_time: "17:00"
+      },
+      meta: {
+        id: "avail-4",
+        by: "contractor-4",
+        timestamp: 1700000003000,
+        action_id: "cmd-create-avail-4"
+      }
+    }
+    expect ok
+  }
+
+  run activate_fails {
+    request {
+      name: "activate_availability",
+      params: {},
+      meta: {
+        id: "avail-4",
+        by: "contractor-4",
+        timestamp: 1700000003100,
+        action_id: "cmd-activate-active"
+      }
+    }
+    expect error "is_inactive"
+  }
+}
+
+test create_missing_user_fails {
+  run bad_create {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "",
+        day_of_week: "monday",
+        start_time: "09:00",
+        end_time: "17:00"
+      },
+      meta: {
+        id: "avail-bad-user",
+        by: "unknown",
+        timestamp: 1700000004000,
+        action_id: "cmd-bad-user"
+      }
+    }
+    expect error "user_required"
+  }
+}
+
+test create_missing_start_time_fails {
+  run bad_create {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-5",
+        day_of_week: "monday",
+        start_time: "",
+        end_time: "17:00"
+      },
+      meta: {
+        id: "avail-bad-start",
+        by: "contractor-5",
+        timestamp: 1700000005000,
+        action_id: "cmd-bad-start"
+      }
+    }
+    expect error "start_time_required"
+  }
+}
+
+test create_missing_end_time_fails {
+  run bad_create {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-6",
+        day_of_week: "monday",
+        start_time: "09:00",
+        end_time: ""
+      },
+      meta: {
+        id: "avail-bad-end",
+        by: "contractor-6",
+        timestamp: 1700000006000,
+        action_id: "cmd-bad-end"
+      }
+    }
+    expect error "end_time_required"
+  }
+}
+
+test multiple_slots_per_day {
+  run morning {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-7",
+        organization_id: "org-7",
+        day_of_week: "thursday",
+        start_time: "08:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "avail-morning",
+        by: "contractor-7",
+        timestamp: 1700000007000,
+        action_id: "cmd-morning"
+      }
+    }
+    expect ok
+    assert record.start_time == "08:00"
+    assert record.end_time == "12:00"
+  }
+}
+
+test create_minimal_params {
+  run create {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-8",
+        day_of_week: "saturday",
+        start_time: "10:00",
+        end_time: "14:00"
+      },
+      meta: {
+        id: "avail-minimal",
+        by: "contractor-8",
+        timestamp: 1700000008000,
+        action_id: "cmd-minimal"
+      }
+    }
+    expect ok
+    assert record.user_id == "contractor-8"
+    assert record.organization_id == ""
+    assert record.day_of_week == "saturday"
+    assert record.start_time == "10:00"
+    assert record.end_time == "14:00"
+    assert record.status == "active"
+  }
+}
+
+test create_each_day_of_week {
+  run sunday {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-9",
+        day_of_week: "sunday",
+        start_time: "12:00",
+        end_time: "16:00"
+      },
+      meta: {
+        id: "avail-sunday",
+        by: "contractor-9",
+        timestamp: 1700000009000,
+        action_id: "cmd-sunday"
+      }
+    }
+    expect ok
+    assert record.day_of_week == "sunday"
+  }
+}
+
+test update_partial_start_only {
+  run create {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-10",
+        day_of_week: "monday",
+        start_time: "09:00",
+        end_time: "17:00"
+      },
+      meta: {
+        id: "avail-partial-start",
+        by: "contractor-10",
+        timestamp: 1700000010000,
+        action_id: "cmd-create-ps"
+      }
+    }
+    expect ok
+  }
+
+  run update_start {
+    request {
+      name: "update_availability",
+      params: {
+        start_time: "07:00"
+      },
+      meta: {
+        id: "avail-partial-start",
+        by: "contractor-10",
+        timestamp: 1700000010100,
+        action_id: "cmd-update-start"
+      }
+    }
+    expect ok
+    assert record.start_time == "07:00"
+    assert events[0].name == "availability_updated"
+  }
+}
+
+test update_partial_end_only {
+  run create {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-11",
+        day_of_week: "tuesday",
+        start_time: "09:00",
+        end_time: "17:00"
+      },
+      meta: {
+        id: "avail-partial-end",
+        by: "contractor-11",
+        timestamp: 1700000011000,
+        action_id: "cmd-create-pe"
+      }
+    }
+    expect ok
+  }
+
+  run update_end {
+    request {
+      name: "update_availability",
+      params: {
+        end_time: "20:00"
+      },
+      meta: {
+        id: "avail-partial-end",
+        by: "contractor-11",
+        timestamp: 1700000011100,
+        action_id: "cmd-update-end"
+      }
+    }
+    expect ok
+    assert record.end_time == "20:00"
+  }
+}
+
+test full_cycle_create_update_deactivate_reactivate {
+  run create {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-12",
+        organization_id: "org-12",
+        day_of_week: "wednesday",
+        start_time: "08:00",
+        end_time: "12:00"
+      },
+      meta: {
+        id: "avail-full-cycle",
+        by: "contractor-12",
+        timestamp: 1700000012000,
+        action_id: "cmd-create-fc"
+      }
+    }
+    expect ok
+    assert record.status == "active"
+  }
+
+  run update {
+    request {
+      name: "update_availability",
+      params: {
+        start_time: "09:00",
+        end_time: "13:00"
+      },
+      meta: {
+        id: "avail-full-cycle",
+        by: "contractor-12",
+        timestamp: 1700000012100,
+        action_id: "cmd-update-fc"
+      }
+    }
+    expect ok
+    assert record.start_time == "09:00"
+    assert record.end_time == "13:00"
+  }
+
+  run deactivate {
+    request {
+      name: "deactivate_availability",
+      params: {},
+      meta: {
+        id: "avail-full-cycle",
+        by: "contractor-12",
+        timestamp: 1700000012200,
+        action_id: "cmd-deactivate-fc"
+      }
+    }
+    expect ok
+    assert record.status == "inactive"
+  }
+
+  run reactivate {
+    request {
+      name: "activate_availability",
+      params: {},
+      meta: {
+        id: "avail-full-cycle",
+        by: "contractor-12",
+        timestamp: 1700000012300,
+        action_id: "cmd-activate-fc"
+      }
+    }
+    expect ok
+    assert record.status == "active"
+  }
+
+  run deactivate_again {
+    request {
+      name: "deactivate_availability",
+      params: {},
+      meta: {
+        id: "avail-full-cycle",
+        by: "contractor-12",
+        timestamp: 1700000012400,
+        action_id: "cmd-deactivate-fc2"
+      }
+    }
+    expect ok
+    assert record.status == "inactive"
+  }
+}
+
+test create_event_fields {
+  run create {
+    request {
+      name: "create_availability",
+      params: {
+        user_id: "contractor-13",
+        organization_id: "org-13",
+        day_of_week: "friday",
+        start_time: "07:00",
+        end_time: "15:00"
+      },
+      meta: {
+        id: "avail-event-fields",
+        by: "contractor-13",
+        timestamp: 1700000013000,
+        action_id: "cmd-create-ef"
+      }
+    }
+    expect ok
+    assert events.len == 1
+    assert events[0].name == "availability_created"
+    assert events[0].data.user_id == "contractor-13"
+    assert events[0].data.organization_id == "org-13"
+    assert events[0].data.day_of_week == "friday"
+    assert events[0].data.start_time == "07:00"
+    assert events[0].data.end_time == "15:00"
+    assert events[0].data.status == "active"
+  }
+}
