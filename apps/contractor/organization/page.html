@@ -1,0 +1,75 @@
+---
+title: Organization Profile
+---
+<div class="page-header">
+    <h1>Organization Profile</h1>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="card">
+    <h3 class="card-title">Service Area</h3>
+    <div class="map-container" id="org-service-map" data-map-token="{{ .secrets.mapbox_token }}" style="height:350px"></div>
+    <div id="org-zip-data" style="display:none"></div>
+</div>
+
+<div class="detail-grid">
+    <div class="card">
+        <h3 class="card-title">Company Information</h3>
+        <dl class="detail-list">
+            <dt>Company Name</dt>
+            <dd id="org-name">-</dd>
+            <dt>Type</dt>
+            <dd id="org-type">-</dd>
+            <dt>Phone</dt>
+            <dd id="org-phone">-</dd>
+            <dt>Email</dt>
+            <dd id="org-email">-</dd>
+            <dt>Website</dt>
+            <dd id="org-website">-</dd>
+            <dt>Verification</dt>
+            <dd id="org-status"><span class="status-badge">-</span></dd>
+        </dl>
+    </div>
+    <div class="card">
+        <h3 class="card-title">Description</h3>
+        <p id="org-description" style="font-size:0.875rem;color:#374151">No description provided.</p>
+    </div>
+</div>
+
+<script>
+// Populate service area map from localStorage
+(function() {
+    var stored = localStorage.getItem('onboarding_service_zips');
+    if (!stored) return;
+    try {
+        var zips = JSON.parse(stored);
+        var container = document.getElementById('org-zip-data');
+        if (container && Array.isArray(zips)) {
+            zips.forEach(function(z) {
+                var span = document.createElement('span');
+                span.setAttribute('data-zip', z);
+                container.appendChild(span);
+            });
+        }
+    } catch(e) {}
+})();
+
+(async function loadOrg() {
+    try {
+        const resp = await fetch('/api/organization/list');
+        const data = await resp.json();
+        if (!Array.isArray(data) || !data.length) return;
+        const o = data[0];
+        document.getElementById('org-name').textContent = o.name || '-';
+        document.getElementById('org-type').textContent = (o.organization_type || '-').replace(/_/g, ' ');
+        document.getElementById('org-phone').textContent = o.phone || '-';
+        document.getElementById('org-email').textContent = o.email || '-';
+        document.getElementById('org-website').textContent = o.website || '-';
+        const vs = o.verification_status || 'pending';
+        const cls = {verified:'status-badge-green',approved:'status-badge-green',pending:'status-badge-yellow',invited:'status-badge-yellow',rejected:'status-badge-red'}[vs] || '';
+        document.getElementById('org-status').innerHTML = '<span class="status-badge ' + cls + '">' + vs + '</span>';
+        if (o.description) document.getElementById('org-description').textContent = o.description;
+    } catch(e) { console.error('Failed to load organization:', e); }
+})();
+</script>

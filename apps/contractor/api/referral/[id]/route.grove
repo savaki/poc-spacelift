@@ -1,0 +1,33 @@
+route {
+  GET {
+    data record {
+      query referral.get_referral {
+        referral_id: input.params.id
+      }
+    }
+  }
+
+  POST accept_referral {
+    data result {
+      invoke referral.accept_referral {
+        contractor_notes: input.body.contractor_notes
+      }
+    }
+  }
+
+  POST decline_referral {
+    data result {
+      invoke referral.decline_referral {
+        contractor_notes: input.body.contractor_notes
+      }
+    }
+  }
+
+  POST save_contractor_notes {
+    data result {
+      invoke referral.save_contractor_notes {
+        contractor_notes: input.body.contractor_notes
+      }
+    }
+  }
+}

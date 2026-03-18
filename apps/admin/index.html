@@ -1,0 +1,160 @@
+---
+title: Dashboard
+---
+<div class="page-header">
+    <h1>Dashboard</h1>
+</div>
+
+<!-- Stats + Chart Card -->
+<div class="card">
+    <div class="dashboard-overview">
+        <div class="dashboard-stats">
+            <div class="stat-card-compact">
+                <p class="stat-label stat-label-blue">Projects</p>
+                <p class="stat-value" id="stat-projects">0</p>
+            </div>
+            <div class="stat-card-compact">
+                <p class="stat-label stat-label-green">Consultations Scheduled</p>
+                <p class="stat-value" id="stat-consultations">0</p>
+            </div>
+            <div class="stat-card-compact">
+                <p class="stat-label stat-label-purple">In-Flight Referrals</p>
+                <p class="stat-value" id="stat-referrals">0</p>
+            </div>
+        </div>
+        <div class="chart-area">
+            <div class="chart-header">
+                <p class="chart-title">Pipeline Overview</p>
+                <div class="chart-legend">
+                    <span class="legend-item"><span class="legend-dot dot-blue"></span> Projects</span>
+                    <span class="legend-item"><span class="legend-dot dot-red"></span> Referrals</span>
+                </div>
+            </div>
+            <div style="position:relative;height:220px"><canvas id="activity-chart"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<script>
+var chartInstance = null;
+function renderChart(pCounts, rCounts) {
+    var el = document.getElementById('activity-chart');
+    if (!el) return;
+    if (chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(el, {
+        type: 'bar',
+        data: {
+            labels: ['New', 'Consultation', 'Complete', 'Closed', 'Sent', 'Accepted', 'Scheduled', 'Connected', 'Declined'],
+            datasets: [{
+                label: 'Count',
+                data: [pCounts.new||0, pCounts.consultation_scheduled||0, pCounts.completed||0, pCounts.closed||0,
+                       rCounts.sent||0, rCounts.accepted||0, rCounts.meeting_scheduled||0, rCounts.connected||0, rCounts.declined||0],
+                backgroundColor: [
+                    '#3b86e1', '#3b86e1', '#3b86e1', '#3b86e1',
+                    '#fc4c4c', '#fc4c4c', '#fc4c4c', '#fc4c4c', '#fc4c4c'
+                ],
+                borderRadius: 6,
+                barThickness: 28
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { stepSize: 1 } },
+                x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+            }
+        }
+    });
+}
+
+(async function loadDashboard() {
+    try {
+        const [projResp, refResp] = await Promise.all([
+            fetch('/api/project/list'),
+            fetch('/api/referral/list')
+        ]);
+        const projects = await projResp.json();
+        const referrals = await refResp.json();
+
+        var pArr = Array.isArray(projects) ? projects : [];
+        var rArr = Array.isArray(referrals) ? referrals : [];
+
+        document.getElementById('stat-projects').textContent = pArr.length;
+        var scheduled = pArr.filter(function(p) { return p.status === 'consultation_scheduled'; }).length;
+        document.getElementById('stat-consultations').textContent = scheduled;
+        var inflight = rArr.filter(function(r) { return r.status !== 'connected' && r.status !== 'declined'; }).length;
+        document.getElementById('stat-referrals').textContent = inflight;
+
+        // Count by status
+        var pCounts = {};
+        pArr.forEach(function(p) { pCounts[p.status] = (pCounts[p.status]||0) + 1; });
+        var rCounts = {};
+        rArr.forEach(function(r) { rCounts[r.status] = (rCounts[r.status]||0) + 1; });
+        renderChart(pCounts, rCounts);
+
+        // Ready for referrals table (projects in 'new' or 'consultation_scheduled' status with a consultant)
+        var ready = pArr.filter(function(p) { return p.status === 'consultation_scheduled' || (p.status === 'new' && p.consultant_id); });
+        if (ready.length) {
+            var tbody1 = document.getElementById('ready-table');
+            tbody1.innerHTML = ready.map(function(p) {
+                return '<tr onclick="location.href=\'/projects/' + p.id + '\'" style="cursor:pointer"><td><a href="/projects/' + p.id + '">' + (p.homeowner_name||'-') + '</a></td><td>' +
+                    (p.address_street||'') + ', ' + (p.address_city||'') + '</td><td>' +
+                    (p.project_type||'-').replace(/_/g,' ') + '</td><td>$' +
+                    (p.budget_min||0) + ' - $' + (p.budget_max||0) + '</td></tr>';
+            }).join('');
+        }
+
+        // In-flight referrals table
+        var active = rArr.filter(function(r) { return r.status !== 'connected' && r.status !== 'declined'; });
+        if (active.length) {
+            var tbody3 = document.getElementById('referrals-table');
+            tbody3.innerHTML = active.map(function(r) {
+                var cls = {sent:'status-badge-yellow',accepted:'status-badge-blue',meeting_scheduled:'status-badge-purple'}[r.status] || '';
+                return '<tr onclick="location.href=\'/referrals/' + r.id + '\'" style="cursor:pointer"><td><a href="/referrals/' + r.id + '">' + (r.organization_id||'-') + '</a></td><td>' +
+                    (r.project_id||'-') + '</td><td><span class="status-badge ' + cls + '">' + (r.status||'-') + '</span></td><td>' +
+                    (r.created_at ? new Date(parseInt(r.created_at)).toLocaleDateString() : '-') + '</td><td>' +
+                    (r.sender_id||'-') + '</td></tr>';
+            }).join('');
+        }
+    } catch(e) { console.error('Dashboard load failed:', e); }
+})();
+</script>
+
+<!-- Ready for Referrals -->
+<div class="card">
+    <h3 class="card-title accent-green">Ready for Referrals</h3>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Homeowner</th>
+                <th>Address</th>
+                <th>Type</th>
+                <th>Budget</th>
+            </tr>
+        </thead>
+        <tbody id="ready-table">
+            <tr><td colspan="4" class="empty-state">No projects ready for referral</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- In-Flight Referrals -->
+<div class="card">
+    <h3 class="card-title accent-purple">In-Flight Referrals</h3>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Contractor</th>
+                <th>Project</th>
+                <th>Status</th>
+                <th>Sent</th>
+                <th>Sender</th>
+            </tr>
+        </thead>
+        <tbody id="referrals-table">
+            <tr><td colspan="5" class="empty-state">No referrals in progress</td></tr>
+        </tbody>
+    </table>
+</div>

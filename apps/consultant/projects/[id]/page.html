@@ -1,0 +1,170 @@
+---
+title: Project Detail
+---
+<div class="page-header">
+    <a href="/projects" class="back-link">&larr; Back to Projects</a>
+    <h1>Project Detail</h1>
+</div>
+
+<div class="status-timeline">
+    <div class="status-timeline-step active">
+        <div class="status-timeline-dot"></div>
+        <span>New</span>
+    </div>
+    <div class="status-timeline-connector"></div>
+    <div class="status-timeline-step">
+        <div class="status-timeline-dot"></div>
+        <span>Consultation</span>
+    </div>
+    <div class="status-timeline-connector"></div>
+    <div class="status-timeline-step">
+        <div class="status-timeline-dot"></div>
+        <span>Complete</span>
+    </div>
+    <div class="status-timeline-connector"></div>
+    <div class="status-timeline-step">
+        <div class="status-timeline-dot"></div>
+        <span>Referred</span>
+    </div>
+    <div class="status-timeline-connector"></div>
+    <div class="status-timeline-step">
+        <div class="status-timeline-dot"></div>
+        <span>Connected</span>
+    </div>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="detail-grid">
+    <div class="card">
+        <h3 class="card-title">Project Overview</h3>
+        <dl class="detail-list">
+            <dt>Address</dt>
+            <dd>-</dd>
+            <dt>Homeowner</dt>
+            <dd>-</dd>
+            <dt>Project Type</dt>
+            <dd>-</dd>
+            <dt>Budget</dt>
+            <dd>-</dd>
+            <dt>Status</dt>
+            <dd><span class="status-badge">New</span></dd>
+        </dl>
+    </div>
+    <div class="card">
+        <h3 class="card-title">Consultations</h3>
+        <p class="empty-state-sm">No consultations scheduled</p>
+        <form id="consultation-form" style="margin-top:0.75rem">
+            <input type="text" name="date" class="form-input" placeholder="Date (YYYY-MM-DD)" style="margin-bottom:0.5rem" />
+            <textarea name="notes" class="form-input" placeholder="Consultation notes..." style="width:100%;min-height:60px;margin-bottom:0.5rem"></textarea>
+            <select name="disposition" class="filter-select" style="margin-bottom:0.5rem">
+                <option value="">Disposition</option>
+                <option value="ready_for_referral">Ready for Referral</option>
+                <option value="needs_followup">Needs Follow-up</option>
+            </select>
+            <button type="submit" class="btn btn-sm">Save Consultation</button>
+        </form>
+    </div>
+    <div class="card">
+        <h3 class="card-title">Homeowner Contact</h3>
+        <dl class="detail-list">
+            <dt>Name</dt>
+            <dd>-</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="map-container" id="project-map" data-map-token="{{ .secrets.mapbox_token }}"></div>
+
+<div class="card">
+    <h3 class="card-title">Scope &amp; Details</h3>
+    <p class="empty-state">Scope information will appear after consultation.</p>
+    <form id="scope-form" style="margin-top:0.75rem">
+        <input type="text" name="description" class="form-input" placeholder="Scope item description" style="margin-bottom:0.5rem" required />
+        <input type="text" name="category" class="form-input" placeholder="Category" style="margin-bottom:0.5rem" />
+        <input type="number" name="estimated_cost" class="form-input" placeholder="Estimated cost" style="margin-bottom:0.5rem" />
+        <button type="submit" class="btn btn-sm">Add Scope Item</button>
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Referrals</h3>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Contractor</th>
+                <th>Status</th>
+                <th>Sent</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="4" class="empty-state">No referrals sent for this project</td></tr>
+        </tbody>
+    </table>
+    <form id="referral-form" style="margin-top:0.75rem">
+        <select name="organization_id" class="filter-select" required style="margin-bottom:0.5rem">
+            <option value="">Select Contractor...</option>
+        </select>
+        <textarea name="consultant_notes" class="form-input" placeholder="Notes for the contractor..." style="width:100%;min-height:60px;margin-bottom:0.5rem"></textarea>
+        <button type="submit" class="btn btn-sm">Send Referral</button>
+    </form>
+</div>
+
+<script>
+const projectId = '{{ .params.id }}';
+
+(async function loadProject() {
+    try {
+        const resp = await fetch('/api/project/' + projectId);
+        const data = await resp.json();
+        const p = Array.isArray(data) ? data[0] : data;
+        if (!p) return;
+        const dds = document.querySelectorAll('.detail-list dd');
+        // Project Overview
+        dds[0].textContent = [p.address_street, p.address_city, p.address_state, p.address_zip].filter(Boolean).join(', ') || '-';
+        dds[1].textContent = p.homeowner_name || '-';
+        dds[2].textContent = p.project_type || '-';
+        dds[3].textContent = p.budget_min && p.budget_max ? '$' + p.budget_min.toLocaleString() + ' - $' + p.budget_max.toLocaleString() : '-';
+        dds[4].innerHTML = '<span class="status-badge">' + (p.status || 'new') + '</span>';
+        // Homeowner Contact
+        dds[5].textContent = [p.homeowner_name, p.homeowner_email, p.homeowner_phone].filter(Boolean).join(' / ') || '-';
+        // Map
+        if (p.address_street) {
+            var mapEl = document.getElementById('project-map');
+            var token = mapEl && mapEl.getAttribute('data-map-token');
+            if (mapEl && token && typeof mapboxgl !== 'undefined') {
+                mapboxgl.accessToken = token;
+                var addr = [p.address_street, p.address_city, p.address_state, p.address_zip].filter(Boolean).join(', ');
+                geocodeWithFallback(addr, token).then(function(coords) {
+                    if (!coords) return;
+                    var map = new mapboxgl.Map({ container: mapEl, style: 'mapbox://styles/mapbox/light-v11', center: coords, zoom: 14 });
+                    new mapboxgl.Marker({ color: '#FC4C4C' }).setLngLat(coords).addTo(map);
+                });
+            }
+        }
+    } catch(e) { console.error('Failed to load project:', e); }
+})();
+
+document.getElementById('referral-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    data.project_id = projectId;
+    try {
+        const resp = await fetch('/api/referral:send_referral', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        document.getElementById('alert-container').innerHTML = resp.ok
+            ? '<div class="alert alert-success">Referral sent! ID: ' + result.record.id + '</div>'
+            : '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+    } catch(err) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">' + err.message + '</div>';
+    }
+});
+</script>

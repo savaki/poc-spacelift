@@ -1,0 +1,106 @@
+---
+title: Referral Detail
+---
+<a href="/referrals" class="back-link">&larr; Back to My Referrals</a>
+
+<div class="page-header">
+    <h1>Referral Detail</h1>
+    <p class="subtitle">ID: {{ .params.id }}</p>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="status-timeline">
+    <div class="status-timeline-step active"><span class="status-timeline-dot"></span> Sent</div>
+    <div class="status-timeline-connector"></div>
+    <div class="status-timeline-step"><span class="status-timeline-dot"></span> Accepted</div>
+    <div class="status-timeline-connector"></div>
+    <div class="status-timeline-step"><span class="status-timeline-dot"></span> Scheduled</div>
+    <div class="status-timeline-connector"></div>
+    <div class="status-timeline-step"><span class="status-timeline-dot"></span> Connected</div>
+</div>
+
+<div class="detail-grid">
+    <div class="card">
+        <h3 class="card-title">Referral Information</h3>
+        <dl class="detail-list">
+            <dt>Referral ID</dt><dd>{{ .params.id }}</dd>
+            <dt>Status</dt><dd><span class="status-badge status-badge-blue">sent</span></dd>
+            <dt>Contractor</dt><dd>-</dd>
+            <dt>Notes</dt><dd>-</dd>
+        </dl>
+    </div>
+    <div class="card">
+        <h3 class="card-title">Project Information</h3>
+        <dl class="detail-list">
+            <dt>Project ID</dt><dd>-</dd>
+            <dt>Type</dt><dd>-</dd>
+            <dt>Homeowner</dt><dd>-</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="card">
+    <h3 class="card-title">Actions</h3>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="scheduleMeeting()">Schedule Intro Meeting</button>
+        <button class="btn btn-green btn-sm" onclick="confirmConnection()">Confirm Connection</button>
+    </div>
+</div>
+
+<script>
+const referralId = '{{ .params.id }}';
+
+(async function loadReferral() {
+    try {
+        const resp = await fetch('/api/referral/' + referralId);
+        const data = await resp.json();
+        const r = Array.isArray(data) ? data[0] : data;
+        if (!r) return;
+        const dds = document.querySelectorAll('.detail-list dd');
+        // Referral Information
+        dds[1].innerHTML = '<span class="status-badge">' + (r.status || 'sent') + '</span>';
+        dds[2].textContent = r.organization_id || '-';
+        dds[3].textContent = r.consultant_notes || '-';
+        // Project Information
+        dds[4].textContent = r.project_id || '-';
+    } catch(e) { console.error('Failed to load referral:', e); }
+})();
+
+async function scheduleMeeting() {
+    const date = prompt('Meeting date (YYYY-MM-DD):');
+    if (!date) return;
+    const notes = prompt('Meeting notes (optional):') || '';
+    try {
+        const resp = await fetch('/api/referral/' + referralId + '/schedule_meeting', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ meeting_date: date, meeting_notes: notes })
+        });
+        const result = await resp.json();
+        document.getElementById('alert-container').innerHTML = resp.ok
+            ? '<div class="alert alert-success">Meeting scheduled!</div>'
+            : '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+    } catch(e) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">' + e.message + '</div>';
+    }
+}
+
+async function confirmConnection() {
+    try {
+        const resp = await fetch('/api/referral/' + referralId + '/confirm_connection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+        });
+        const result = await resp.json();
+        document.getElementById('alert-container').innerHTML = resp.ok
+            ? '<div class="alert alert-success">Connection confirmed!</div>'
+            : '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+    } catch(e) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">' + e.message + '</div>';
+    }
+}
+</script>

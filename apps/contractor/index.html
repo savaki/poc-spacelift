@@ -1,0 +1,82 @@
+---
+title: Dashboard
+---
+<div class="page-header">
+    <h1>Dashboard</h1>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid stats-grid-4">
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-blue">Total Referrals</p>
+            <p class="stat-value" id="stat-total">0</p>
+        </div>
+        <div class="stat-icon stat-icon-blue"><i class="icon-mail"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-green">Accepted</p>
+            <p class="stat-value" id="stat-accepted">0</p>
+        </div>
+        <div class="stat-icon stat-icon-green"><i class="icon-circle-check"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-purple">Pending</p>
+            <p class="stat-value" id="stat-pending">0</p>
+        </div>
+        <div class="stat-icon stat-icon-purple"><i class="icon-eye"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-red">Declined</p>
+            <p class="stat-value" id="stat-declined">0</p>
+        </div>
+        <div class="stat-icon stat-icon-red"><i class="icon-circle-x"></i></div>
+    </div>
+</div>
+
+<!-- Recent Referrals Table -->
+<div class="card">
+    <h3 class="card-title">Recent Referrals</h3>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Project</th>
+                <th>Status</th>
+                <th>Notes</th>
+                <th>Received</th>
+            </tr>
+        </thead>
+        <tbody id="referrals-table">
+            <tr><td colspan="4" class="empty-state">No referrals yet</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+(async function loadDashboard() {
+    try {
+        const resp = await fetch('/api/referral/list');
+        const referrals = await resp.json();
+        var rArr = Array.isArray(referrals) ? referrals : [];
+
+        document.getElementById('stat-total').textContent = rArr.length;
+        document.getElementById('stat-accepted').textContent = rArr.filter(function(r) { return r.status === 'accepted' || r.status === 'meeting_scheduled' || r.status === 'connected'; }).length;
+        document.getElementById('stat-pending').textContent = rArr.filter(function(r) { return r.status === 'sent'; }).length;
+        document.getElementById('stat-declined').textContent = rArr.filter(function(r) { return r.status === 'declined'; }).length;
+
+        if (rArr.length) {
+            var tbody = document.getElementById('referrals-table');
+            tbody.innerHTML = rArr.map(function(r) {
+                var cls = {sent:'status-badge-yellow',accepted:'status-badge-blue',meeting_scheduled:'status-badge-purple',connected:'status-badge-green',declined:'status-badge-red'}[r.status] || '';
+                return '<tr onclick="location.href=\'/referrals/' + r.id + '\'" style="cursor:pointer"><td><a href="/referrals/' + r.id + '">' + (r.project_id||'-') + '</a></td>' +
+                    '<td><span class="status-badge ' + cls + '">' + (r.status||'-').replace(/_/g,' ') + '</span></td>' +
+                    '<td>' + (r.contractor_notes||'-') + '</td>' +
+                    '<td>' + (r.created_at ? new Date(parseInt(r.created_at)).toLocaleDateString() : '-') + '</td></tr>';
+            }).join('');
+        }
+    } catch(e) { console.error('Dashboard load failed:', e); }
+})();
+</script>

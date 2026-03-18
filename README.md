@@ -51,7 +51,7 @@ poc-spacelift/
 │   ├── project/          # Home improvement projects
 │   ├── referral/         # Referral workflow (consultant → contractor)
 │   └── invite/           # User invitations to join organizations
-└── app/                  # Frontend pages and API routes
+└── apps/                 # Frontend pages and API routes
     ├── admin/            # Admin dashboard
     ├── consultant/       # Consultant dashboard
     └── contractor/       # Contractor dashboard + onboarding
@@ -83,7 +83,7 @@ Email invitations for new users to join an organization. States: `pending` → `
 
 ## API
 
-API routes are defined in `app/<role>/api/<module>/route.grove` and follow the pattern:
+API routes are defined in `apps/<role>/api/<module>/route.grove` and follow the pattern:
 
 ```
 POST /api/<module>:<action>

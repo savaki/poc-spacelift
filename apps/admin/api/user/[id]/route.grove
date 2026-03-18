@@ -1,0 +1,9 @@
+route {
+  GET {
+    data record {
+      query user.get_user {
+        user_id: input.params.id
+      }
+    }
+  }
+}

@@ -1,0 +1,66 @@
+---
+title: User Detail
+---
+<div class="page-header">
+    <a href="/users" class="back-link">&larr; Back to Users</a>
+    <h1>User Detail</h1>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="detail-grid">
+    <div class="card">
+        <h3 class="card-title">Account Information</h3>
+        <dl class="detail-list">
+            <dt>Name</dt>
+            <dd id="user-name">-</dd>
+            <dt>Email</dt>
+            <dd id="user-email">-</dd>
+            <dt>Phone</dt>
+            <dd id="user-phone">-</dd>
+            <dt>Role</dt>
+            <dd id="user-role">-</dd>
+            <dt>Status</dt>
+            <dd id="user-status">-</dd>
+        </dl>
+    </div>
+    <div class="card">
+        <h3 class="card-title">Organization</h3>
+        <dl class="detail-list">
+            <dt>Organization ID</dt>
+            <dd id="user-org">-</dd>
+            <dt>Joined</dt>
+            <dd id="user-created">-</dd>
+        </dl>
+    </div>
+</div>
+
+<script>
+const userId = '{{ .params.id }}';
+
+function roleBadge(role) {
+    const cls = {admin:'role-badge-admin',consultant:'role-badge-consultant',contractor:'role-badge-contractor'}[role] || '';
+    return '<span class="role-badge ' + cls + '">' + (role || '-') + '</span>';
+}
+
+function statusBadge(status) {
+    const cls = {active:'status-badge-green',invited:'status-badge-yellow',suspended:'status-badge-red'}[status] || '';
+    return '<span class="status-badge ' + cls + '">' + (status || '-') + '</span>';
+}
+
+(async function loadUser() {
+    try {
+        const resp = await fetch('/api/user/' + userId);
+        const data = await resp.json();
+        const u = Array.isArray(data) ? data[0] : data;
+        if (!u) return;
+        document.getElementById('user-name').textContent = (u.first_name || '') + ' ' + (u.last_name || '');
+        document.getElementById('user-email').textContent = u.email || '-';
+        document.getElementById('user-phone').textContent = u.phone || '-';
+        document.getElementById('user-role').innerHTML = roleBadge(u.role);
+        document.getElementById('user-status').innerHTML = statusBadge(u.status);
+        document.getElementById('user-org').textContent = u.organization_id || 'None';
+        document.getElementById('user-created').textContent = u.created_at ? new Date(u.created_at).toLocaleDateString() : '-';
+    } catch(e) { console.error('Failed to load user:', e); }
+})();
+</script>
