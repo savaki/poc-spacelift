@@ -1,3 +1,24 @@
+query list_organizations {
+  gsql {
+    SELECT id, name, organization_type, email, phone, website,
+           verification_status, description, created_at
+    FROM organization ORDER BY created_at DESC
+  }
+  output: List<Object>
+}
+
+query get_organization {
+  args {
+    organization_id: String
+  }
+  sql {
+    SELECT id, name, organization_type, email, phone, website,
+           verification_status, description, created_at
+    FROM organization WHERE id = @organization_id
+  }
+  output: Object
+}
+
 enum OrganizationType {
   general_contractor,
   subcontractor,

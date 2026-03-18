@@ -1,3 +1,11 @@
+query list_invites {
+  gsql {
+    SELECT id, email, token, organization_id, status, invited_by, created_at
+    FROM invite ORDER BY created_at DESC
+  }
+  output: List<Object>
+}
+
 /// An invitation to join the Spacelift platform.
 /// Invites are sent by existing users to bring new contractors or consultants
 /// into an organization. Each invite contains a unique token for verification.

@@ -1,3 +1,22 @@
+query list_users {
+  gsql {
+    SELECT id, email, first_name, last_name, role, status, organization_id, created_at
+    FROM "user" ORDER BY created_at DESC
+  }
+  output: List<Object>
+}
+
+query get_user {
+  args {
+    user_id: String
+  }
+  sql {
+    SELECT id, email, first_name, last_name, role, status, organization_id, phone, created_at
+    FROM "user" WHERE id = @user_id
+  }
+  output: Object
+}
+
 /// A user account on the Spacelift platform.
 /// Users belong to one of three roles: admin, consultant, or contractor.
 /// Each user may optionally be associated with an organization.
