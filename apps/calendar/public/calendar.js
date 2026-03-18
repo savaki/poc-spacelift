@@ -1,5 +1,8 @@
 // Shared calendar utilities and Unpoly compilers.
 
+// Update browser URL on all Unpoly navigations so steps are bookmarkable.
+up.fragment.config.navigateOptions.history = true;
+
 var DAY_MAP = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0 };
 var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -139,6 +142,14 @@ up.compiler('[data-calendar-grid]', function(el) {
 
     for (var i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
 
+    // Continue button (hidden until a date is selected)
+    var continueBtn = document.createElement('a');
+    continueBtn.className = 'cal-btn';
+    continueBtn.style.marginTop = '1rem';
+    continueBtn.style.display = 'none';
+    continueBtn.setAttribute('up-target', '.cal-card');
+    continueBtn.textContent = 'Continue';
+
     for (var d = 1; d <= daysInMonth; d++) {
         var date = new Date(calYear, calMonth, d);
         var isPast = date < today;
@@ -147,12 +158,18 @@ up.compiler('[data-calendar-grid]', function(el) {
         var dateStr = date.toISOString().slice(0, 10);
 
         if (!isPast && hasAvail) {
-            var a = document.createElement('a');
-            a.href = selectUrl + '?date=' + dateStr;
-            a.className = 'cal-day in-month available' + (isToday ? ' today' : '') + (selectedDate === dateStr ? ' selected' : '');
-            a.setAttribute('up-target', '.cal-card');
-            a.textContent = d;
-            grid.appendChild(a);
+            var dayEl = document.createElement('div');
+            dayEl.className = 'cal-day in-month available' + (isToday ? ' today' : '') + (selectedDate === dateStr ? ' selected' : '');
+            dayEl.textContent = d;
+            dayEl.setAttribute('data-date', dateStr);
+            dayEl.addEventListener('click', function() {
+                var picked = this.getAttribute('data-date');
+                grid.querySelectorAll('.cal-day').forEach(function(c) { c.classList.remove('selected'); });
+                this.classList.add('selected');
+                continueBtn.href = selectUrl + '?date=' + picked;
+                continueBtn.style.display = 'block';
+            });
+            grid.appendChild(dayEl);
         } else {
             var div = document.createElement('div');
             div.className = 'cal-day in-month' + (isToday ? ' today' : '') + (isPast ? ' disabled' : '');
@@ -161,6 +178,7 @@ up.compiler('[data-calendar-grid]', function(el) {
         }
     }
     el.appendChild(grid);
+    el.appendChild(continueBtn);
 });
 
 // --- Unpoly compiler: [data-time-slots] ---
@@ -182,6 +200,13 @@ up.compiler('[data-time-slots]', function(el) {
     var dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
     var availDays = getAvailableDays(slots);
     var daySlots = availDays[dateObj.getDay()] || [];
+
+    // Continue button (hidden until a time is selected)
+    var continueBtn = document.createElement('a');
+    continueBtn.className = 'cal-btn';
+    continueBtn.style.cssText = 'margin-top:1rem;display:none;grid-column:1/-1';
+    continueBtn.setAttribute('up-target', '.cal-card');
+    continueBtn.textContent = 'Continue';
 
     loadBookedTimes(contractorId, selectedDate).then(function(bookedTimes) {
         // Remove loading indicator
@@ -212,14 +237,22 @@ up.compiler('[data-time-slots]', function(el) {
                     div.textContent = formatTime(h, mm);
                     el.appendChild(div);
                 } else {
-                    var a = document.createElement('a');
-                    a.href = selectUrl + '?date=' + selectedDate + '&time=' + timeStr + '&end_time=' + endStr;
-                    a.className = 'cal-slot';
-                    a.setAttribute('up-target', '.cal-card');
-                    a.textContent = formatTime(h, mm);
-                    el.appendChild(a);
+                    var slotEl = document.createElement('div');
+                    slotEl.className = 'cal-slot';
+                    slotEl.textContent = formatTime(h, mm);
+                    slotEl.setAttribute('data-time', timeStr);
+                    slotEl.setAttribute('data-end', endStr);
+                    slotEl.addEventListener('click', function() {
+                        el.querySelectorAll('.cal-slot:not(.booked)').forEach(function(s) { s.classList.remove('selected'); });
+                        this.classList.add('selected');
+                        continueBtn.href = selectUrl + '?date=' + selectedDate + '&time=' + this.getAttribute('data-time') + '&end_time=' + this.getAttribute('data-end');
+                        continueBtn.style.display = 'block';
+                    });
+                    el.appendChild(slotEl);
                 }
             }
         });
+
+        el.appendChild(continueBtn);
     });
 });

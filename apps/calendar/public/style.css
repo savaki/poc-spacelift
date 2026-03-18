@@ -159,10 +159,16 @@ body {
 
 .cal-day.available:hover {
     background: var(--mz-color-gray-100, #f3f4f6);
+    color: var(--mz-color-gray-900, #1a1a2e);
 }
 
 .cal-day.selected {
     background: #FC4C4C;
+    color: white;
+}
+
+.cal-day.selected:hover {
+    background: #e04343;
     color: white;
 }
 
@@ -250,12 +256,14 @@ body {
 .cal-field textarea {
     width: 100%;
     padding: 0.6rem 0.75rem;
-    border: 1px solid var(--mz-color-gray-300, #d1d5db);
+    border: 1px solid #d1d5db;
     border-radius: 0.5rem;
     font-size: 0.875rem;
     font-family: inherit;
     outline: none;
     transition: border-color 0.15s;
+    background: white;
+    color: #1a1a2e;
 }
 
 .cal-field input:focus,
