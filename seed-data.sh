@@ -10,7 +10,7 @@ echo "Seeding Spacelift Grove data..."
 
 # 1. Create an organization
 echo "Creating organization..."
-ORG_RESULT=$(curl -s -X POST "$BASE/api/organization:create_organization" \
+ORG_RESULT=$(curl -s -X POST "$BASE/api/organization/create_organization" \
   -H "Content-Type: application/json" \
   -H "X-Tenant-ID: $TENANT" \
   -d '{
@@ -27,7 +27,7 @@ echo "  Organization: $ORG_ID"
 
 # 2. Create users
 echo "Creating users..."
-ADMIN_RESULT=$(curl -s -X POST "$BASE/api/user:create_user" \
+ADMIN_RESULT=$(curl -s -X POST "$BASE/api/user/create_user" \
   -H "Content-Type: application/json" \
   -H "X-Tenant-ID: $TENANT" \
   -d '{
@@ -39,7 +39,7 @@ ADMIN_RESULT=$(curl -s -X POST "$BASE/api/user:create_user" \
 ADMIN_ID=$(echo "$ADMIN_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['record']['id'])" 2>/dev/null || echo "admin-unknown")
 echo "  Admin: $ADMIN_ID"
 
-CONSULTANT_RESULT=$(curl -s -X POST "$BASE/api/user:create_user" \
+CONSULTANT_RESULT=$(curl -s -X POST "$BASE/api/user/create_user" \
   -H "Content-Type: application/json" \
   -H "X-Tenant-ID: $TENANT" \
   -d '{
@@ -51,7 +51,7 @@ CONSULTANT_RESULT=$(curl -s -X POST "$BASE/api/user:create_user" \
 CONSULTANT_ID=$(echo "$CONSULTANT_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['record']['id'])" 2>/dev/null || echo "consultant-unknown")
 echo "  Consultant: $CONSULTANT_ID"
 
-CONTRACTOR_RESULT=$(curl -s -X POST "$BASE/api/user:create_user" \
+CONTRACTOR_RESULT=$(curl -s -X POST "$BASE/api/user/create_user" \
   -H "Content-Type: application/json" \
   -H "X-Tenant-ID: $TENANT" \
   -d "{
@@ -67,7 +67,7 @@ echo "  Contractor: $CONTRACTOR_ID"
 
 # 3. Create projects
 echo "Creating projects..."
-PROJECT1_RESULT=$(curl -s -X POST "$BASE/api/project:create_project" \
+PROJECT1_RESULT=$(curl -s -X POST "$BASE/api/project/create_project" \
   -H "Content-Type: application/json" \
   -H "X-Tenant-ID: $TENANT" \
   -d "{
@@ -85,7 +85,7 @@ PROJECT1_RESULT=$(curl -s -X POST "$BASE/api/project:create_project" \
 PROJECT1_ID=$(echo "$PROJECT1_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['record']['id'])" 2>/dev/null || echo "proj1-unknown")
 echo "  Project 1 (Kitchen): $PROJECT1_ID"
 
-PROJECT2_RESULT=$(curl -s -X POST "$BASE/api/project:create_project" \
+PROJECT2_RESULT=$(curl -s -X POST "$BASE/api/project/create_project" \
   -H "Content-Type: application/json" \
   -H "X-Tenant-ID: $TENANT" \
   -d "{

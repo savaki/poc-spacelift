@@ -1,3 +1,26 @@
+query list_projects {
+  gsql {
+    SELECT id, status, project_type, homeowner_name, homeowner_email,
+           address_street, address_city, address_state, address_zip,
+           budget_min, budget_max, consultant_id, created_at
+    FROM project ORDER BY created_at DESC
+  }
+  output: List<Object>
+}
+
+query get_project {
+  args {
+    project_id: String
+  }
+  sql {
+    SELECT id, status, project_type, homeowner_name, homeowner_email, homeowner_phone,
+           address_street, address_city, address_state, address_zip,
+           budget_min, budget_max, consultant_id, target_date, notes, created_at
+    FROM project WHERE id = @project_id
+  }
+  output: Object
+}
+
 /// A home improvement project managed on the Spacelift platform.
 /// Projects track homeowner information, scope, budget, and are matched
 /// with contractors through the referral system.
