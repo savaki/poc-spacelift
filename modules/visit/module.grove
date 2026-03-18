@@ -1,6 +1,6 @@
 query list_visits {
   gsql {
-    SELECT id, project_id, organization_id, contractor_id, homeowner_name,
+    SELECT id, visit_token, project_id, organization_id, contractor_id, homeowner_name,
            homeowner_email, scheduled_date, start_time, end_time, visit_type,
            status, location_street, location_city, location_state, location_zip,
            homeowner_notes, contractor_notes, cancellation_reason, created_at
@@ -14,12 +14,27 @@ query get_visit {
     visit_id: String
   }
   sql {
-    SELECT id, project_id, organization_id, contractor_id, referral_id,
+    SELECT id, visit_token, project_id, organization_id, contractor_id, referral_id,
            homeowner_name, homeowner_email, homeowner_phone,
            scheduled_date, start_time, end_time, visit_type, status,
            location_street, location_city, location_state, location_zip,
            homeowner_notes, contractor_notes, cancellation_reason, created_at
     FROM visit WHERE id = @visit_id
+  }
+  output: Object
+}
+
+query get_visit_by_token {
+  args {
+    token: String
+  }
+  sql {
+    SELECT id, visit_token, project_id, organization_id, contractor_id, referral_id,
+           homeowner_name, homeowner_email, homeowner_phone,
+           scheduled_date, start_time, end_time, visit_type, status,
+           location_street, location_city, location_state, location_zip,
+           homeowner_notes, contractor_notes, cancellation_reason, created_at
+    FROM visit WHERE visit_token = @token
   }
   output: Object
 }
@@ -36,6 +51,8 @@ enum VisitType {
 /// Visits follow a lifecycle: requested → confirmed → in_progress → completed.
 /// Visits can also be cancelled or marked as no-show from certain states.
 record {
+  /// Random token for public-facing URLs (prevents IDOR via sequential IDs).
+  visit_token: String = "" @searchable
   /// The project this visit is associated with.
   project_id: String @searchable
   /// The contractor organization performing the visit.
@@ -128,6 +145,7 @@ validate can_reschedule {
 
 /// Raised when a new visit is requested.
 event visit_requested {
+  visit_token: String
   project_id: String
   organization_id: String
   contractor_id: String
@@ -200,6 +218,7 @@ event contractor_notes_updated {
 /// The visit starts in "requested" status awaiting contractor confirmation.
 @create
 action request_visit {
+  visit_token: String = ""
   project_id: String
   organization_id: String = ""
   contractor_id: String
@@ -222,6 +241,7 @@ action request_visit {
   validate start_time_required
   apply {
     emit visit_requested {
+      visit_token: params.visit_token
       project_id: params.project_id
       organization_id: params.organization_id
       contractor_id: params.contractor_id

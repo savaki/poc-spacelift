@@ -20,19 +20,19 @@ title: Visit Details
         <dd>{{ .data.record.scheduled_date }}</dd>
         <dt>Time</dt>
         <dd>{{ .data.record.start_time }}</dd>
-        {{#if .data.record.location_street }}
+        {{#if (.data.record.location_street | length) > 0 }}
         <dt>Address</dt>
         <dd>{{ .data.record.location_street }}, {{ .data.record.location_city }} {{ .data.record.location_state }} {{ .data.record.location_zip }}</dd>
         {{/if}}
         <dt>Type</dt>
         <dd>{{ .data.record.visit_type }}</dd>
-        {{#if .data.record.homeowner_notes }}
+        {{#if (.data.record.homeowner_notes | length) > 0 }}
         <dt>Your Notes</dt>
         <dd>{{ .data.record.homeowner_notes }}</dd>
         {{/if}}
     </dl>
 
-    {{#if .data.record.contractor_notes }}
+    {{#if (.data.record.contractor_notes | length) > 0 }}
     <h3 style="font-size:0.9375rem;font-weight:600;margin:1rem 0 0.5rem">Contractor Notes</h3>
     <div style="background:var(--mz-color-blue-50,#eff6ff);border-radius:0.5rem;padding:0.75rem 1rem;font-size:0.875rem;color:var(--mz-color-blue-800,#1e40af)">
         {{ .data.record.contractor_notes }}
@@ -83,7 +83,8 @@ title: Visit Details
 </div>
 
 <script>
-var visitId = '{{ .params.visit_id }}';
+var visitId = '{{ .data.record.id }}';
+var visitToken = '{{ .params.visit_id }}';
 var contractorId = '{{ .data.record.contractor_id }}';
 var availabilitySlots = [];
 var rSelectedDate = null;
@@ -281,7 +282,7 @@ async function confirmReschedule() {
         });
         if (!resp.ok) throw new Error('Reschedule failed');
         // Reload server-rendered page to show updated visit
-        up.visit('/visit/' + visitId);
+        up.visit('/visit/' + visitToken);
     } catch (err) {
         errorEl.textContent = err.message || 'Failed to reschedule. Please try again.';
         errorEl.style.display = 'block';

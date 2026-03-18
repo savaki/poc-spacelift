@@ -115,9 +115,15 @@ var availabilitySlots = [];
 var bookedVisits = [];
 var selectedDate = null;
 var selectedTime = null;
-var createdVisitId = null;
+var createdVisitToken = null;
 var currentStep = 1;
 var calYear, calMonth;
+
+function generateToken() {
+    return crypto.randomUUID ? crypto.randomUUID() : 'xxxx-xxxx-xxxx'.replace(/x/g, function() {
+        return Math.floor(Math.random() * 16).toString(16);
+    });
+}
 
 // Day-of-week mapping: availability module uses monday..sunday, JS Date uses 0=Sun..6=Sat
 // gsql may return enum values with embedded quotes, so we strip them
@@ -385,10 +391,12 @@ async function submitBooking(e) {
         });
 
         // 3. Request visit
+        createdVisitToken = generateToken();
         var visitResp = await fetch('/api/visit/request_visit', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                visit_token: createdVisitToken,
                 project_id: projectId,
                 contractor_id: contractorId,
                 homeowner_name: fd.get('name'),
@@ -406,11 +414,10 @@ async function submitBooking(e) {
             })
         });
         var visitData = await visitResp.json();
-        createdVisitId = visitData.record ? visitData.record.id : (visitData.id || null);
-        if (!createdVisitId) throw new Error('Failed to create visit');
+        if (!visitData.record) throw new Error('Failed to create visit');
 
-        // Navigate to server-rendered visit detail page
-        up.visit('/visit/' + createdVisitId + '?booked=1');
+        // Navigate to server-rendered visit detail page using token URL
+        up.visit('/visit/' + createdVisitToken + '?booked=1');
 
     } catch (err) {
         errorEl.textContent = err.message || 'Something went wrong. Please try again.';

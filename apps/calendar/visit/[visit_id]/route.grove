@@ -3,8 +3,8 @@ route {
 
   GET {
     data record {
-      query visit.get_visit {
-        visit_id: input.params.visit_id
+      query visit.get_visit_by_token {
+        token: input.params.visit_id
       }
     }
   }
