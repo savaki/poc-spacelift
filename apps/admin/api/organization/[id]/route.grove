@@ -1,0 +1,15 @@
+route {
+  GET {
+    data record {
+      query organization.get_organization {
+        organization_id: input.params.id
+      }
+    }
+  }
+
+  POST approve_organization {
+    data result {
+      invoke organization.approve_organization { }
+    }
+  }
+}

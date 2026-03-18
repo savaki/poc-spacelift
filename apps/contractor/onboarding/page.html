@@ -1,0 +1,95 @@
+---
+title: Onboarding
+---
+<div class="ob-step">Step 1 of 4</div>
+<h2 class="ob-title">Create your account</h2>
+
+<form class="ob-form" id="onboarding-signup">
+    <div class="ob-field">
+        <label>Company Name</label>
+        <input type="text" name="company_name" class="ob-input" placeholder="Summit Builders" required>
+    </div>
+    <div class="ob-field">
+        <label>Company Type</label>
+        <select name="organization_type" class="ob-input" required>
+            <option value="general_contractor">General Contractor</option>
+            <option value="specialty_contractor">Specialty Contractor</option>
+            <option value="design_build">Design Build</option>
+        </select>
+    </div>
+    <div class="ob-row">
+        <div class="ob-field" style="flex:1">
+            <label>First Name</label>
+            <input type="text" name="first_name" class="ob-input" placeholder="John" required>
+        </div>
+        <div class="ob-field" style="flex:1">
+            <label>Last Name</label>
+            <input type="text" name="last_name" class="ob-input" placeholder="Smith" required>
+        </div>
+    </div>
+    <div class="ob-field">
+        <label>Email</label>
+        <input type="email" name="email" class="ob-input" placeholder="john@example.com" required>
+    </div>
+    <div class="ob-error" id="signup-error" style="display:none"></div>
+    <button type="submit" class="ob-btn">Continue</button>
+</form>
+
+<script>
+document.getElementById('onboarding-signup').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var form = e.target;
+    var errorEl = document.getElementById('signup-error');
+    errorEl.style.display = 'none';
+    var btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Setting up...';
+
+    var fd = new FormData(form);
+
+    fetch('/api/organization:create_organization', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+            name: fd.get('company_name'),
+            organization_type: fd.get('organization_type'),
+            email: null,
+            phone: null,
+            website: null,
+            description: null
+        })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(orgData) {
+        var orgId = orgData.record ? orgData.record.id : (orgData.id || null);
+        if (!orgId) throw new Error('Failed to create organization');
+
+        return fetch('/api/user:create_user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+                first_name: fd.get('first_name'),
+                last_name: fd.get('last_name'),
+                email: fd.get('email'),
+                role: 'contractor',
+                organization_id: orgId,
+                phone: null
+            })
+        });
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(userData) {
+        var userId = userData.record ? userData.record.id : (userData.id || null);
+        if (!userId) throw new Error('Failed to create user');
+        localStorage.setItem('onboarding_org_id', orgId);
+        localStorage.setItem('onboarding_user_id', userId);
+        window.location.href = '/onboarding/organization';
+    })
+    .catch(function(err) {
+        errorEl.textContent = err.message || 'Something went wrong. Please try again.';
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Continue';
+    });
+});
+</script>

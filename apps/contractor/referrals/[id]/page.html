@@ -1,0 +1,149 @@
+---
+title: Referral Detail
+---
+<div class="page-header">
+    <a href="/referrals" class="back-link">&larr; Back to Referrals</a>
+    <h1>Referral Detail</h1>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="detail-grid">
+    <div class="card">
+        <h3 class="card-title">Project Information</h3>
+        <dl class="detail-list">
+            <dt>Address</dt>
+            <dd>-</dd>
+            <dt>Homeowner</dt>
+            <dd>-</dd>
+            <dt>Project Type</dt>
+            <dd>-</dd>
+            <dt>Budget</dt>
+            <dd>-</dd>
+        </dl>
+    </div>
+    <div class="card">
+        <h3 class="card-title">Referral Status</h3>
+        <dl class="detail-list">
+            <dt>Status</dt>
+            <dd><span class="status-badge status-badge-purple">Sent</span></dd>
+            <dt>Sent By</dt>
+            <dd>-</dd>
+            <dt>Consultant Notes</dt>
+            <dd>-</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="card">
+    <h3 class="card-title">Respond to Referral</h3>
+    <div class="action-bar">
+        <button class="btn" onclick="acceptReferral()">Accept</button>
+        <button class="btn btn-outline" onclick="declineReferral()">Decline</button>
+    </div>
+</div>
+
+<div class="card">
+    <h3 class="card-title">Scope Details</h3>
+    <p class="empty-state">Scope information will appear here once available.</p>
+</div>
+
+<div class="card">
+    <h3 class="card-title">Contractor Notes</h3>
+    <form id="notes-form">
+        <textarea name="contractor_notes" class="form-input" style="width:100%;min-height:80px" placeholder="Add your notes..."></textarea>
+        <div class="action-bar">
+            <button type="submit" class="btn btn-sm">Save Notes</button>
+        </div>
+    </form>
+</div>
+
+<script>
+const referralId = '{{ .params.id }}';
+
+(async function loadReferral() {
+    try {
+        const resp = await fetch('/api/referral/' + referralId);
+        const data = await resp.json();
+        const r = Array.isArray(data) ? data[0] : data;
+        if (!r) return;
+        const dds = document.querySelectorAll('.detail-list dd');
+        // Project Information
+        dds[0].textContent = '-'; // address not available directly
+        dds[1].textContent = '-'; // homeowner not available directly
+        dds[2].textContent = '-'; // project type not available directly
+        dds[3].textContent = '-'; // budget not available directly
+        // Referral Status
+        dds[4].innerHTML = '<span class="status-badge">' + (r.status || 'sent') + '</span>';
+        dds[5].textContent = r.sender_id || '-';
+        dds[6].textContent = r.consultant_notes || '-';
+        // Also load project details if available
+        if (r.project_id) {
+            try {
+                const projResp = await fetch('/api/project/' + r.project_id);
+                const projData = await projResp.json();
+                const p = Array.isArray(projData) ? projData[0] : projData;
+                if (p) {
+                    dds[0].textContent = [p.address_street, p.address_city, p.address_state].filter(Boolean).join(', ') || '-';
+                    dds[1].textContent = p.homeowner_name || '-';
+                    dds[2].textContent = p.project_type || '-';
+                    dds[3].textContent = p.budget_min && p.budget_max ? '$' + p.budget_min.toLocaleString() + ' - $' + p.budget_max.toLocaleString() : '-';
+                }
+            } catch(e) { /* project load is best-effort */ }
+        }
+    } catch(e) { console.error('Failed to load referral:', e); }
+})();
+
+async function acceptReferral() {
+    try {
+        const resp = await fetch('/api/referral/' + referralId + '/accept_referral', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contractor_notes: '' })
+        });
+        const result = await resp.json();
+        document.getElementById('alert-container').innerHTML = resp.ok
+            ? '<div class="alert alert-success">Referral accepted!</div>'
+            : '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+    } catch(e) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">' + e.message + '</div>';
+    }
+}
+
+async function declineReferral() {
+    try {
+        const resp = await fetch('/api/referral/' + referralId + '/decline_referral', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contractor_notes: '' })
+        });
+        const result = await resp.json();
+        document.getElementById('alert-container').innerHTML = resp.ok
+            ? '<div class="alert alert-success">Referral declined.</div>'
+            : '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+    } catch(e) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">' + e.message + '</div>';
+    }
+}
+
+document.getElementById('notes-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    try {
+        const resp = await fetch('/api/referral/' + referralId + '/save_contractor_notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        document.getElementById('alert-container').innerHTML = resp.ok
+            ? '<div class="alert alert-success">Notes saved!</div>'
+            : '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+    } catch(e) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">' + e.message + '</div>';
+    }
+});
+</script>

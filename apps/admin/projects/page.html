@@ -1,0 +1,113 @@
+---
+title: Projects
+---
+<div class="page-header-actions">
+    <h1>Projects</h1>
+    <a href="/projects/new" class="btn">New Project</a>
+</div>
+
+<div class="card">
+    <h3 class="card-title">Project Locations</h3>
+    <div class="map-container" id="projects-map" data-map-token="{{ .secrets.mapbox_token }}"></div>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <input type="text" class="search-input" placeholder="Search by homeowner or address..." id="search-projects">
+        <select class="filter-select" id="filter-status">
+            <option value="">All Statuses</option>
+            <option value="new">New</option>
+            <option value="consultation_scheduled">Consultation Scheduled</option>
+            <option value="consultation_complete">Consultation Complete</option>
+            <option value="referred">Referred</option>
+            <option value="matched">Matched</option>
+            <option value="project_complete">Project Complete</option>
+            <option value="closed">Closed</option>
+        </select>
+        <select class="filter-select" id="filter-type">
+            <option value="">All Types</option>
+            <option value="kitchen">Kitchen</option>
+            <option value="bathroom">Bathroom</option>
+            <option value="addition">Addition</option>
+            <option value="whole_home">Whole Home</option>
+            <option value="outdoor">Outdoor</option>
+            <option value="basement">Basement</option>
+            <option value="other">Other</option>
+        </select>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Address</th>
+                <th>Homeowner</th>
+                <th>Status</th>
+                <th>Budget</th>
+                <th>Last Activity</th>
+                <th>Consultant</th>
+            </tr>
+        </thead>
+        <tbody id="projects-table">
+            <tr><td colspan="6" class="empty-state">No projects yet</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+var _allProjects = [];
+function renderProjects() {
+    var q = document.getElementById('search-projects').value.toLowerCase();
+    var status = document.getElementById('filter-status').value;
+    var type = document.getElementById('filter-type').value;
+    var filtered = _allProjects.filter(function(r) {
+        if (q && !((r.homeowner_name||'')+(r.address_street||'')+(r.address_city||'')).toLowerCase().includes(q)) return false;
+        if (status && r.status !== status) return false;
+        if (type && r.project_type !== type) return false;
+        return true;
+    });
+    var tbody = document.getElementById('projects-table');
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No projects match</td></tr>'; return; }
+    tbody.innerHTML = filtered.map(function(r) {
+        var budget = r.budget_min && r.budget_max ? '$' + Number(r.budget_min).toLocaleString() + ' - $' + Number(r.budget_max).toLocaleString() : '-';
+        return '<tr onclick="location.href=\'/projects/' + r.id + '\'" style="cursor:pointer"><td><a href="/projects/' + r.id + '">' + (r.address_street||'-') + ', ' + (r.address_city||'') + ' ' + (r.address_state||'') + '</a></td><td>' + (r.homeowner_name||'-') + '</td><td><span class="status-badge">' + (r.status||'-') + '</span></td><td>' + budget + '</td><td>' + (r.created_at ? new Date(parseInt(r.created_at)).toLocaleDateString() : '-') + '</td><td>' + (r.consultant_id || '<span style="color:#9ca3af">Unassigned</span>') + '</td></tr>';
+    }).join('');
+}
+document.getElementById('search-projects').addEventListener('input', renderProjects);
+document.getElementById('filter-status').addEventListener('change', renderProjects);
+document.getElementById('filter-type').addEventListener('change', renderProjects);
+
+(async function() {
+    try {
+        var resp = await fetch('/api/project/list');
+        _allProjects = await resp.json();
+        if (!Array.isArray(_allProjects)) _allProjects = [];
+        renderProjects();
+        initProjectsMap(_allProjects);
+    } catch(e) { console.error('Failed to load projects:', e); }
+})();
+
+function initProjectsMap(projects) {
+    var el = document.getElementById('projects-map');
+    var token = el && el.getAttribute('data-map-token');
+    if (!el || !token || typeof mapboxgl === 'undefined') return;
+    mapboxgl.accessToken = token;
+    var pins = projects.filter(function(p) { return p.address_street; }).map(function(p) {
+        return { address: [p.address_street, p.address_city, p.address_state, p.address_zip].filter(Boolean).join(', '), label: p.homeowner_name || 'Project', href: '/projects/' + p.id };
+    });
+    if (!pins.length) { el.style.display = 'none'; return; }
+    var allCoords = [], pinData = [], pending = pins.length;
+    pins.forEach(function(pin) {
+        geocodeWithFallback(pin.address, token).then(function(coords) {
+            if (coords) { allCoords.push(coords); pinData.push({ coords: coords, label: pin.label, addr: pin.address, href: pin.href }); }
+            if (--pending <= 0 && allCoords.length > 0) {
+                var bounds = new mapboxgl.LngLatBounds();
+                allCoords.forEach(function(c) { bounds.extend(c); });
+                var map = new mapboxgl.Map({ container: el, style: 'mapbox://styles/mapbox/light-v11', bounds: bounds, fitBoundsOptions: { padding: 50, maxZoom: 14 } });
+                pinData.forEach(function(p) {
+                    var popup = new mapboxgl.Popup({ offset: 25 }).setHTML('<strong>' + p.label + '</strong><br>' + p.addr);
+                    new mapboxgl.Marker({ color: '#FC4C4C' }).setLngLat(p.coords).setPopup(popup).addTo(map);
+                });
+            } else if (pending <= 0) { el.style.display = 'none'; }
+        });
+    });
+}
+</script>

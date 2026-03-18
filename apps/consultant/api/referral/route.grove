@@ -1,0 +1,18 @@
+route {
+  GET list {
+    data records {
+      query referral.list_referrals { }
+    }
+  }
+
+  POST send_referral {
+    data result {
+      invoke referral.send_referral {
+        project_id: input.body.project_id,
+        organization_id: input.body.organization_id,
+        sender_id: input.body.sender_id,
+        consultant_notes: input.body.consultant_notes
+      }
+    }
+  }
+}

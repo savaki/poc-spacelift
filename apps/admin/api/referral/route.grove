@@ -1,0 +1,7 @@
+route {
+  GET list {
+    data records {
+      query referral.list_referrals { }
+    }
+  }
+}

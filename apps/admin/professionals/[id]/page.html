@@ -1,0 +1,84 @@
+---
+title: Professional Detail
+---
+<div class="page-header">
+    <a href="/professionals" class="back-link">&larr; Back to Professionals</a>
+    <h1>Professional Detail</h1>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="detail-grid">
+    <div class="card">
+        <h3 class="card-title">Company Information</h3>
+        <dl class="detail-list">
+            <dt>Company Name</dt>
+            <dd>-</dd>
+            <dt>Type</dt>
+            <dd>-</dd>
+            <dt>Email</dt>
+            <dd>-</dd>
+            <dt>Phone</dt>
+            <dd>-</dd>
+            <dt>Verification</dt>
+            <dd><span class="status-badge status-badge-yellow">Invited</span></dd>
+        </dl>
+        <div class="action-bar">
+            <button class="btn btn-sm" onclick="approveOrg()">Approve</button>
+        </div>
+    </div>
+    <div class="card">
+        <h3 class="card-title">Specialties</h3>
+        <div class="tag-list">
+            <span class="tag">No preferences set</span>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3 class="card-title">Team Members</h3>
+    <table class="data-table">
+        <thead>
+            <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="4" class="empty-state">No team members found.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+const orgId = '{{ .params.id }}';
+
+(async function loadOrg() {
+    try {
+        const resp = await fetch('/api/organization/' + orgId);
+        const data = await resp.json();
+        const o = Array.isArray(data) ? data[0] : data;
+        if (!o) return;
+        const dds = document.querySelectorAll('.detail-list dd');
+        dds[0].textContent = o.name || '-';
+        dds[1].textContent = o.organization_type || '-';
+        dds[2].textContent = o.email || '-';
+        dds[3].textContent = o.phone || '-';
+        dds[4].innerHTML = '<span class="status-badge">' + (o.verification_status || 'invited') + '</span>';
+    } catch(e) { console.error('Failed to load organization:', e); }
+})();
+
+async function approveOrg() {
+    try {
+        const resp = await fetch('/api/organization/' + orgId + '/approve_organization', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+        });
+        const result = await resp.json();
+        document.getElementById('alert-container').innerHTML = resp.ok
+            ? '<div class="alert alert-success">Organization approved!</div>'
+            : '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+    } catch(e) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">' + e.message + '</div>';
+    }
+}
+</script>

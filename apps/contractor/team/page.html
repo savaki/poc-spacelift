@@ -1,0 +1,39 @@
+---
+title: Team
+---
+<div class="page-header">
+    <h1>Team</h1>
+</div>
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="team-table">
+            <tr><td colspan="4" class="empty-state">No team members yet. Add a team member to get started.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+(async function loadTeam() {
+    try {
+        const resp = await fetch('/api/user/list');
+        const data = await resp.json();
+        if (!Array.isArray(data) || !data.length) return;
+        const tbody = document.getElementById('team-table');
+        tbody.innerHTML = data.map(r => `<tr>
+            <td>${r.first_name || ''} ${r.last_name || ''}</td>
+            <td>${r.email || '-'}</td>
+            <td><span class="status-badge">${r.role || '-'}</span></td>
+            <td><span class="status-badge">${r.status || '-'}</span></td>
+        </tr>`).join('');
+    } catch(e) { console.error('Failed to load team:', e); }
+})();
+</script>

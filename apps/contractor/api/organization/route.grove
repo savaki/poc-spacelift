@@ -1,0 +1,20 @@
+route {
+  GET list {
+    data records {
+      query organization.list_organizations { }
+    }
+  }
+
+  POST create_organization {
+    data result {
+      invoke organization.create_organization {
+        name: input.body.name,
+        organization_type: input.body.organization_type,
+        email: input.body.email,
+        phone: input.body.phone,
+        website: input.body.website,
+        description: input.body.description
+      }
+    }
+  }
+}

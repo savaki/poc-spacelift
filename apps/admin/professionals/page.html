@@ -1,0 +1,61 @@
+---
+title: Professionals
+---
+<div class="page-header-actions">
+    <h1>Professionals</h1>
+    <a href="/professionals/new" class="btn">Add Professional</a>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <input type="text" class="search-input" placeholder="Search by name or email..." id="search-orgs">
+        <select class="filter-select" id="filter-verification">
+            <option value="">All Verification</option>
+            <option value="invited">Invited</option>
+            <option value="pending">Pending</option>
+            <option value="verified">Verified</option>
+        </select>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Email</th>
+                <th>Verification</th>
+            </tr>
+        </thead>
+        <tbody id="orgs-table">
+            <tr><td colspan="4" class="empty-state">No professionals yet</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+var _allOrgs = [];
+function renderOrgs() {
+    var q = document.getElementById('search-orgs').value.toLowerCase();
+    var ver = document.getElementById('filter-verification').value;
+    var filtered = _allOrgs.filter(function(r) {
+        if (q && !((r.name||'')+(r.email||'')).toLowerCase().includes(q)) return false;
+        if (ver && r.verification_status !== ver) return false;
+        return true;
+    });
+    var tbody = document.getElementById('orgs-table');
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No professionals match</td></tr>'; return; }
+    tbody.innerHTML = filtered.map(function(r) {
+        return '<tr onclick="location.href=\'/professionals/' + r.id + '\'" style="cursor:pointer"><td><a href="/professionals/' + r.id + '">' + (r.name||'-') + '</a></td><td>' + (r.organization_type||'-').replace(/_/g,' ') + '</td><td>' + (r.email||'-') + '</td><td><span class="status-badge">' + (r.verification_status||'-') + '</span></td></tr>';
+    }).join('');
+}
+document.getElementById('search-orgs').addEventListener('input', renderOrgs);
+document.getElementById('filter-verification').addEventListener('change', renderOrgs);
+
+(async function() {
+    try {
+        var resp = await fetch('/api/organization/list');
+        _allOrgs = await resp.json();
+        if (!Array.isArray(_allOrgs)) _allOrgs = [];
+        renderOrgs();
+    } catch(e) { console.error('Failed to load organizations:', e); }
+})();
+</script>

@@ -1,0 +1,80 @@
+---
+title: Organization Setup
+---
+<div class="ob-step">Step 2 of 4</div>
+<h2 class="ob-title">Set up your organization</h2>
+
+<form class="ob-form" id="onboarding-org">
+    <div class="ob-field">
+        <label>Phone</label>
+        <input type="tel" name="phone" class="ob-input" placeholder="(555) 123-4567">
+    </div>
+    <div class="ob-field">
+        <label>Email</label>
+        <input type="email" name="email" class="ob-input" placeholder="contact@company.com">
+    </div>
+    <div class="ob-field">
+        <label>Website</label>
+        <input type="url" name="website" class="ob-input" placeholder="https://yourcompany.com">
+    </div>
+    <div class="ob-row">
+        <div class="ob-field" style="flex:1">
+            <label>State</label>
+            <input type="text" class="ob-input" placeholder="CA">
+        </div>
+        <div class="ob-field" style="flex:2">
+            <label>City</label>
+            <input type="text" class="ob-input" placeholder="Los Angeles">
+        </div>
+    </div>
+    <div class="ob-field">
+        <label>License Number <span style="color:#9ca3af;font-weight:400">(optional)</span></label>
+        <input type="text" class="ob-input" placeholder="License #">
+    </div>
+    <div class="ob-error" id="ob-error" style="display:none"></div>
+    <button type="submit" class="ob-btn">Continue</button>
+</form>
+
+<script>
+document.getElementById('onboarding-org').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var form = e.target;
+    var errorEl = document.getElementById('ob-error');
+    errorEl.style.display = 'none';
+    var btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    var orgId = localStorage.getItem('onboarding_org_id');
+    if (!orgId) {
+        window.location.href = '/onboarding/service-area';
+        return;
+    }
+
+    var fd = new FormData(form);
+    fetch('/api/organization/' + orgId + '/update_organization', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+            name: '',
+            email: fd.get('email') || '',
+            phone: fd.get('phone') || '',
+            website: fd.get('website') || '',
+            description: ''
+        })
+    })
+    .then(function(r) {
+        if (!r.ok) return r.json().then(function(d) { throw new Error(JSON.stringify(d)); });
+        return r.json();
+    })
+    .then(function() {
+        window.location.href = '/onboarding/service-area';
+    })
+    .catch(function(err) {
+        errorEl.textContent = err.message || 'Something went wrong. Please try again.';
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Continue';
+    });
+});
+</script>

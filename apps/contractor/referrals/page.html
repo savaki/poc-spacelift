@@ -1,0 +1,65 @@
+---
+title: Referrals
+---
+<div class="page-header">
+    <h1>Incoming Referrals</h1>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <input type="text" class="search-input" placeholder="Search referrals..." id="search-referrals">
+        <select class="filter-select" id="filter-status">
+            <option value="">All Statuses</option>
+            <option value="sent">Sent</option>
+            <option value="viewed">Viewed</option>
+            <option value="accepted">Accepted</option>
+            <option value="declined">Declined</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="connected">Connected</option>
+        </select>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Project</th>
+                <th>From</th>
+                <th>Status</th>
+                <th>Notes</th>
+                <th>Received</th>
+            </tr>
+        </thead>
+        <tbody id="referrals-table">
+            <tr><td colspan="5" class="empty-state">No referrals yet</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+var _allReferrals = [];
+function renderReferrals() {
+    var q = document.getElementById('search-referrals').value.toLowerCase();
+    var status = document.getElementById('filter-status').value;
+    var filtered = _allReferrals.filter(function(r) {
+        if (q && !((r.project_id||'')+(r.sender_id||'')+(r.consultant_notes||'')).toLowerCase().includes(q)) return false;
+        if (status && r.status !== status) return false;
+        return true;
+    });
+    var tbody = document.getElementById('referrals-table');
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No referrals match</td></tr>'; return; }
+    tbody.innerHTML = filtered.map(function(r) {
+        var cls = {sent:'status-badge-yellow',accepted:'status-badge-blue',meeting_scheduled:'status-badge-purple',connected:'status-badge-green',declined:'status-badge-red'}[r.status] || '';
+        return '<tr onclick="location.href=\'/referrals/' + r.id + '\'" style="cursor:pointer"><td><a href="/referrals/' + r.id + '">' + (r.project_id||'-') + '</a></td><td>' + (r.sender_id||'-') + '</td><td><span class="status-badge ' + cls + '">' + (r.status||'-') + '</span></td><td>' + (r.consultant_notes||'-') + '</td><td>' + (r.created_at ? new Date(parseInt(r.created_at)).toLocaleDateString() : '-') + '</td></tr>';
+    }).join('');
+}
+document.getElementById('search-referrals').addEventListener('input', renderReferrals);
+document.getElementById('filter-status').addEventListener('change', renderReferrals);
+
+(async function() {
+    try {
+        var resp = await fetch('/api/referral/list');
+        _allReferrals = await resp.json();
+        if (!Array.isArray(_allReferrals)) _allReferrals = [];
+        renderReferrals();
+    } catch(e) { console.error('Failed to load referrals:', e); }
+})();
+</script>

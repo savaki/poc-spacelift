@@ -1,0 +1,24 @@
+route {
+  GET {
+    data record {
+      query referral.get_referral {
+        referral_id: input.params.id
+      }
+    }
+  }
+
+  POST schedule_meeting {
+    data result {
+      invoke referral.schedule_meeting {
+        meeting_date: input.body.meeting_date,
+        meeting_notes: input.body.meeting_notes
+      }
+    }
+  }
+
+  POST confirm_connection {
+    data result {
+      invoke referral.confirm_connection { }
+    }
+  }
+}

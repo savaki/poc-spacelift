@@ -1,0 +1,21 @@
+route {
+  GET {
+    data record {
+      query organization.get_organization {
+        organization_id: input.params.id
+      }
+    }
+  }
+
+  POST update_organization {
+    data result {
+      invoke organization.update_organization {
+        name: input.body.name,
+        email: input.body.email,
+        phone: input.body.phone,
+        website: input.body.website,
+        description: input.body.description
+      }
+    }
+  }
+}

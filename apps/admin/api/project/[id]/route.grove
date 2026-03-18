@@ -1,0 +1,29 @@
+route {
+  GET {
+    data record {
+      query project.get_project {
+        project_id: input.params.id
+      }
+    }
+  }
+
+  POST assign {
+    data result {
+      invoke project.assign_consultant {
+        consultant_id: input.body.consultant_id
+      }
+    }
+  }
+
+  POST complete {
+    data result {
+      invoke project.mark_project_complete { }
+    }
+  }
+
+  POST close {
+    data result {
+      invoke project.close_project { }
+    }
+  }
+}

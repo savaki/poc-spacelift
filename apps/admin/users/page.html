@@ -1,0 +1,69 @@
+---
+title: Users
+---
+<div class="page-header-actions">
+    <h1>Users</h1>
+    <a href="/users/new" class="btn">Invite User</a>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <input type="text" class="search-input" placeholder="Search by name or email..." id="search-users">
+        <select class="filter-select" id="filter-role">
+            <option value="">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="consultant">Consultant</option>
+            <option value="contractor">Contractor</option>
+        </select>
+        <select class="filter-select" id="filter-status">
+            <option value="">All Statuses</option>
+            <option value="invited">Invited</option>
+            <option value="active">Active</option>
+        </select>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="users-table">
+            <tr><td colspan="4" class="empty-state">No users yet</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+var _allUsers = [];
+function renderUsers() {
+    var q = document.getElementById('search-users').value.toLowerCase();
+    var role = document.getElementById('filter-role').value;
+    var status = document.getElementById('filter-status').value;
+    var filtered = _allUsers.filter(function(r) {
+        if (q && !((r.first_name||'')+(r.last_name||'')+(r.email||'')).toLowerCase().includes(q)) return false;
+        if (role && r.role !== role) return false;
+        if (status && r.status !== status) return false;
+        return true;
+    });
+    var tbody = document.getElementById('users-table');
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No users match</td></tr>'; return; }
+    tbody.innerHTML = filtered.map(function(r) {
+        return '<tr onclick="location.href=\'/users/' + r.id + '\'" style="cursor:pointer"><td><a href="/users/' + r.id + '">' + (r.first_name||'') + ' ' + (r.last_name||'') + '</a></td><td>' + (r.email||'-') + '</td><td><span class="status-badge">' + (r.role||'-') + '</span></td><td><span class="status-badge">' + (r.status||'-') + '</span></td></tr>';
+    }).join('');
+}
+document.getElementById('search-users').addEventListener('input', renderUsers);
+document.getElementById('filter-role').addEventListener('change', renderUsers);
+document.getElementById('filter-status').addEventListener('change', renderUsers);
+
+(async function() {
+    try {
+        var resp = await fetch('/api/user/list');
+        _allUsers = await resp.json();
+        if (!Array.isArray(_allUsers)) _allUsers = [];
+        renderUsers();
+    } catch(e) { console.error('Failed to load users:', e); }
+})();
+</script>

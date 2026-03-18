@@ -1,0 +1,186 @@
+---
+title: Project Detail
+---
+<div class="page-header">
+    <a href="/projects" class="back-link">&larr; Back to Projects</a>
+    <h1>Project Detail</h1>
+</div>
+
+<div class="status-timeline">
+    <div class="status-timeline-step active">
+        <div class="status-timeline-dot"></div>
+        <span>New</span>
+    </div>
+    <div class="status-timeline-connector"></div>
+    <div class="status-timeline-step">
+        <div class="status-timeline-dot"></div>
+        <span>Consultation</span>
+    </div>
+    <div class="status-timeline-connector"></div>
+    <div class="status-timeline-step">
+        <div class="status-timeline-dot"></div>
+        <span>Complete</span>
+    </div>
+    <div class="status-timeline-connector"></div>
+    <div class="status-timeline-step">
+        <div class="status-timeline-dot"></div>
+        <span>Referred</span>
+    </div>
+    <div class="status-timeline-connector"></div>
+    <div class="status-timeline-step">
+        <div class="status-timeline-dot"></div>
+        <span>Connected</span>
+    </div>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="detail-grid">
+    <div class="card">
+        <h3 class="card-title">Project Overview</h3>
+        <dl class="detail-list">
+            <dt>Address</dt>
+            <dd>-</dd>
+            <dt>Homeowner</dt>
+            <dd>-</dd>
+            <dt>Project Type</dt>
+            <dd>-</dd>
+            <dt>Budget</dt>
+            <dd>-</dd>
+            <dt>Status</dt>
+            <dd><span class="status-badge">New</span></dd>
+            <dt>Assigned Consultant</dt>
+            <dd><span style="color:#9ca3af">Unassigned</span></dd>
+        </dl>
+        <div class="action-bar">
+            <div style="display:flex;align-items:center;gap:0.5rem">
+                <select id="consultant-select" class="filter-select">
+                    <option value="">Assign Consultant...</option>
+                </select>
+                <button class="btn btn-sm" onclick="assignConsultant()">Assign</button>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="markComplete()">Mark Complete</button>
+            <button class="btn btn-sm btn-outline" onclick="closeProject()">Close</button>
+        </div>
+    </div>
+    <div class="card">
+        <h3 class="card-title">Contacts</h3>
+        <dl class="detail-list">
+            <dt>Homeowner</dt>
+            <dd>-</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="map-container" id="project-map" data-map-token="{{ .secrets.mapbox_token }}"></div>
+
+<div class="card">
+    <h3 class="card-title">Scope &amp; Details</h3>
+    <p class="empty-state">Scope information will appear after consultation.</p>
+</div>
+
+<div class="card">
+    <h3 class="card-title">Referrals</h3>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Contractor</th>
+                <th>Status</th>
+                <th>Sent</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="3" class="empty-state">No referrals for this project</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+const projectId = '{{ .params.id }}';
+
+(async function loadProject() {
+    try {
+        const resp = await fetch('/api/project/' + projectId);
+        const data = await resp.json();
+        const p = Array.isArray(data) ? data[0] : data;
+        if (!p) return;
+        const dds = document.querySelectorAll('.detail-list dd');
+        // Project Overview
+        dds[0].textContent = [p.address_street, p.address_city, p.address_state, p.address_zip].filter(Boolean).join(', ') || '-';
+        dds[1].textContent = p.homeowner_name || '-';
+        dds[2].textContent = p.project_type || '-';
+        dds[3].textContent = p.budget_min && p.budget_max ? '$' + p.budget_min.toLocaleString() + ' - $' + p.budget_max.toLocaleString() : '-';
+        dds[4].innerHTML = '<span class="status-badge">' + (p.status || 'new') + '</span>';
+        dds[5].textContent = p.consultant_id || 'Unassigned';
+        // Contact
+        dds[6].textContent = [p.homeowner_name, p.homeowner_email, p.homeowner_phone].filter(Boolean).join(' / ') || '-';
+        // Map
+        if (p.address_street) {
+            var mapEl = document.getElementById('project-map');
+            var token = mapEl && mapEl.getAttribute('data-map-token');
+            if (mapEl && token && typeof mapboxgl !== 'undefined') {
+                mapboxgl.accessToken = token;
+                var addr = [p.address_street, p.address_city, p.address_state, p.address_zip].filter(Boolean).join(', ');
+                geocodeWithFallback(addr, token).then(function(coords) {
+                    if (!coords) return;
+                    var map = new mapboxgl.Map({ container: mapEl, style: 'mapbox://styles/mapbox/light-v11', center: coords, zoom: 14 });
+                    new mapboxgl.Marker({ color: '#FC4C4C' }).setLngLat(coords).addTo(map);
+                });
+            }
+        }
+    } catch(e) { console.error('Failed to load project:', e); }
+})();
+
+async function assignConsultant() {
+    const consultantId = document.getElementById('consultant-select').value;
+    if (!consultantId) { alert('Select a consultant first'); return; }
+    try {
+        const resp = await fetch('/api/project/' + projectId + '/assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ consultant_id: consultantId })
+        });
+        const result = await resp.json();
+        document.getElementById('alert-container').innerHTML = resp.ok
+            ? '<div class="alert alert-success">Consultant assigned.</div>'
+            : '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+    } catch(e) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">' + e.message + '</div>';
+    }
+}
+
+async function markComplete() {
+    try {
+        const resp = await fetch('/api/project/' + projectId + '/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+        });
+        const result = await resp.json();
+        document.getElementById('alert-container').innerHTML = resp.ok
+            ? '<div class="alert alert-success">Project marked complete.</div>'
+            : '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+    } catch(e) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">' + e.message + '</div>';
+    }
+}
+
+async function closeProject() {
+    try {
+        const resp = await fetch('/api/project/' + projectId + '/close', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+        });
+        const result = await resp.json();
+        document.getElementById('alert-container').innerHTML = resp.ok
+            ? '<div class="alert alert-success">Project closed.</div>'
+            : '<div class="alert alert-error">Error: ' + JSON.stringify(result) + '</div>';
+    } catch(e) {
+        document.getElementById('alert-container').innerHTML =
+            '<div class="alert alert-error">' + e.message + '</div>';
+    }
+}
+</script>

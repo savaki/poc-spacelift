@@ -1,0 +1,122 @@
+---
+title: Dashboard
+---
+<div class="page-header">
+    <div>
+        <h1>Good morning</h1>
+        <p class="subtitle">Your project queue and upcoming consultations</p>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid stats-grid-3">
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-blue">My Projects</p>
+            <p class="stat-value" id="stat-projects">0</p>
+        </div>
+        <div class="stat-icon stat-icon-blue"><i class="icon-clipboard-list"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-purple">Active Referrals</p>
+            <p class="stat-value" id="stat-referrals">0</p>
+        </div>
+        <div class="stat-icon stat-icon-purple"><i class="icon-send"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <p class="stat-label stat-label-green">Connections Made</p>
+            <p class="stat-value" id="stat-connections">0</p>
+        </div>
+        <div class="stat-icon stat-icon-green"><i class="icon-circle-check"></i></div>
+    </div>
+</div>
+
+<!-- Three Column Pipeline -->
+<div class="pipeline-grid">
+    <div class="card pipeline-card">
+        <div class="card-header">
+            <h3 class="card-title accent-blue">My Projects</h3>
+            <a href="/projects" class="link-sm">View all &rarr;</a>
+        </div>
+        <div id="projects-pipeline">
+            <p class="empty-state-sm">No projects assigned</p>
+        </div>
+    </div>
+
+    <div class="card pipeline-card">
+        <div class="card-header">
+            <h3 class="card-title accent-purple">Active Referrals</h3>
+            <a href="/referrals" class="link-sm">View all &rarr;</a>
+        </div>
+        <div id="referrals-pipeline">
+            <p class="empty-state-sm">No active referrals</p>
+        </div>
+    </div>
+
+    <div class="card pipeline-card">
+        <div class="card-header">
+            <h3 class="card-title accent-green">Professionals</h3>
+            <a href="/professionals" class="link-sm">Browse &rarr;</a>
+        </div>
+        <div id="professionals-pipeline">
+            <p class="empty-state-sm">Browse verified professionals to refer projects.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+(async function loadDashboard() {
+    try {
+        const [projResp, refResp, orgResp] = await Promise.all([
+            fetch('/api/project/list'),
+            fetch('/api/referral/list'),
+            fetch('/api/organization/list')
+        ]);
+        const projects = await projResp.json();
+        const referrals = await refResp.json();
+        const orgs = await orgResp.json();
+
+        var pArr = Array.isArray(projects) ? projects : [];
+        var rArr = Array.isArray(referrals) ? referrals : [];
+        var oArr = Array.isArray(orgs) ? orgs : [];
+
+        document.getElementById('stat-projects').textContent = pArr.length;
+        var active = rArr.filter(function(r) { return r.status !== 'connected' && r.status !== 'declined'; });
+        document.getElementById('stat-referrals').textContent = active.length;
+        var connections = rArr.filter(function(r) { return r.status === 'connected'; }).length;
+        document.getElementById('stat-connections').textContent = connections;
+
+        // Projects pipeline
+        if (pArr.length) {
+            var html = pArr.slice(0, 5).map(function(p) {
+                var cls = {new:'status-badge-blue',consultation_scheduled:'status-badge-purple',completed:'status-badge-green',closed:'status-badge'}[p.status] || '';
+                return '<div style="padding:0.5rem 0;border-bottom:1px solid #f3f4f6"><a href="/projects/' + p.id + '" style="font-weight:500;font-size:0.875rem;color:#1a1a2e;text-decoration:none">' +
+                    (p.homeowner_name||'Project') + '</a> <span class="status-badge ' + cls + '">' + (p.status||'').replace(/_/g,' ') + '</span></div>';
+            }).join('');
+            document.getElementById('projects-pipeline').innerHTML = html;
+        }
+
+        // Referrals pipeline
+        if (active.length) {
+            var html2 = active.slice(0, 5).map(function(r) {
+                var cls = {sent:'status-badge-yellow',accepted:'status-badge-blue',meeting_scheduled:'status-badge-purple'}[r.status] || '';
+                return '<div style="padding:0.5rem 0;border-bottom:1px solid #f3f4f6"><a href="/referrals/' + r.id + '" style="font-weight:500;font-size:0.875rem;color:#1a1a2e;text-decoration:none">' +
+                    (r.organization_id||'Referral') + '</a> <span class="status-badge ' + cls + '">' + (r.status||'').replace(/_/g,' ') + '</span></div>';
+            }).join('');
+            document.getElementById('referrals-pipeline').innerHTML = html2;
+        }
+
+        // Professionals pipeline
+        if (oArr.length) {
+            var html3 = oArr.slice(0, 5).map(function(o) {
+                var cls = {verified:'status-badge-green',approved:'status-badge-green',invited:'status-badge-yellow'}[o.verification_status] || '';
+                return '<div style="padding:0.5rem 0;border-bottom:1px solid #f3f4f6"><a href="/professionals/' + o.id + '" style="font-weight:500;font-size:0.875rem;color:#1a1a2e;text-decoration:none">' +
+                    (o.name||'Organization') + '</a> <span class="status-badge ' + cls + '">' + (o.verification_status||'').replace(/_/g,' ') + '</span></div>';
+            }).join('');
+            document.getElementById('professionals-pipeline').innerHTML = html3;
+        }
+    } catch(e) { console.error('Dashboard load failed:', e); }
+})();
+</script>
