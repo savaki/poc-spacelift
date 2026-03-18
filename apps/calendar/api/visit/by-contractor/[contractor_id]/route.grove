@@ -1,0 +1,11 @@
+route {
+  auth public
+
+  GET {
+    data records {
+      query visit.list_visits_by_contractor {
+        contractor_id: input.params.contractor_id
+      }
+    }
+  }
+}

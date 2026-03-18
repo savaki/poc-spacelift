@@ -1,0 +1,158 @@
+---
+title: Your Details
+---
+<div class="cal-card">
+    <div class="cal-steps">
+        <div class="cal-step-dot done">&#10003;</div>
+        <div class="cal-step-line done"></div>
+        <div class="cal-step-dot done">&#10003;</div>
+        <div class="cal-step-line done"></div>
+        <div class="cal-step-dot done">&#10003;</div>
+        <div class="cal-step-line done"></div>
+        <div class="cal-step-dot active">4</div>
+    </div>
+    <a href="/{{ .params.contractor_id }}/pick-time?date={{ .query.date }}" class="cal-back" up-target=".cal-card">&larr; Back</a>
+    <h2 style="margin-bottom:1rem;font-size:1.125rem">Your Details</h2>
+    <div class="cal-error" id="form-error"></div>
+    <form class="cal-form" id="booking-form">
+        <div class="cal-row">
+            <div class="cal-field">
+                <label>Name <span style="color:#dc2626">*</span></label>
+                <input type="text" name="name" required placeholder="Jane Smith">
+            </div>
+            <div class="cal-field">
+                <label>Email <span style="color:#dc2626">*</span></label>
+                <input type="email" name="email" required placeholder="jane@example.com">
+            </div>
+        </div>
+        <div class="cal-field">
+            <label>Phone <span class="optional">(optional)</span></label>
+            <input type="tel" name="phone" placeholder="(555) 123-4567">
+        </div>
+        <div class="cal-field">
+            <label>Street Address <span style="color:#dc2626">*</span></label>
+            <input type="text" name="street" required placeholder="123 Oak Avenue">
+        </div>
+        <div class="cal-row">
+            <div class="cal-field">
+                <label>City <span style="color:#dc2626">*</span></label>
+                <input type="text" name="city" required placeholder="Austin">
+            </div>
+            <div class="cal-field" style="max-width:5rem">
+                <label>State</label>
+                <input type="text" name="state" placeholder="TX" maxlength="2">
+            </div>
+            <div class="cal-field" style="max-width:6rem">
+                <label>Zip</label>
+                <input type="text" name="zip" placeholder="78701" maxlength="10">
+            </div>
+        </div>
+        <div class="cal-field">
+            <label>Project Type <span style="color:#dc2626">*</span></label>
+            <select name="project_type" required>
+                <option value="">Select...</option>
+                <option value="kitchen">Kitchen</option>
+                <option value="bathroom">Bathroom</option>
+                <option value="addition">Addition</option>
+                <option value="whole_home">Whole Home</option>
+                <option value="outdoor">Outdoor</option>
+                <option value="basement">Basement</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        <div class="cal-field">
+            <label>Notes <span class="optional">(optional)</span></label>
+            <textarea name="notes" placeholder="Anything the contractor should know..."></textarea>
+        </div>
+        <button type="submit" class="cal-btn" id="submit-btn">Book Visit</button>
+    </form>
+</div>
+
+<script>
+document.getElementById('booking-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var form = e.target;
+    var errorEl = document.getElementById('form-error');
+    var btn = document.getElementById('submit-btn');
+    errorEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Booking...';
+
+    var fd = new FormData(form);
+    var contractorId = '{{ .params.contractor_id }}';
+    var selectedDate = '{{ .query.date }}';
+    var startTime = '{{ .query.time }}';
+    var endTime = '{{ .query.end }}';
+
+    try {
+        // 1. Create project
+        var projResp = await fetch('/api/project/create_project', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                project_type: fd.get('project_type'),
+                homeowner_name: fd.get('name'),
+                homeowner_email: fd.get('email'),
+                homeowner_phone: fd.get('phone') || '',
+                address_street: fd.get('street'),
+                address_city: fd.get('city'),
+                address_state: fd.get('state') || '',
+                address_zip: fd.get('zip') || ''
+            })
+        });
+        var projData = await projResp.json();
+        var projectId = projData.record ? projData.record.id : null;
+        if (!projectId) throw new Error('Failed to create project');
+
+        // 2. Submit homeowner availability
+        await fetch('/api/homeowner_availability/submit_availability', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                project_id: projectId,
+                homeowner_name: fd.get('name'),
+                homeowner_email: fd.get('email'),
+                homeowner_phone: fd.get('phone') || '',
+                available_date: selectedDate,
+                start_time: startTime,
+                end_time: endTime,
+                notes: fd.get('notes') || ''
+            })
+        });
+
+        // 3. Request visit
+        var visitToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+        var visitResp = await fetch('/api/visit/request_visit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                visit_token: visitToken,
+                project_id: projectId,
+                contractor_id: contractorId,
+                homeowner_name: fd.get('name'),
+                homeowner_email: fd.get('email'),
+                homeowner_phone: fd.get('phone') || '',
+                scheduled_date: selectedDate,
+                start_time: startTime,
+                end_time: endTime,
+                visit_type: 'initial_consultation',
+                location_street: fd.get('street'),
+                location_city: fd.get('city'),
+                location_state: fd.get('state') || '',
+                location_zip: fd.get('zip') || '',
+                homeowner_notes: fd.get('notes') || ''
+            })
+        });
+        var visitData = await visitResp.json();
+        if (!visitData.record) throw new Error('Failed to create visit');
+
+        up.visit('/visit/' + visitToken + '?booked=1');
+
+    } catch (err) {
+        errorEl.textContent = err.message || 'Something went wrong. Please try again.';
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Book Visit';
+    }
+});
+</script>

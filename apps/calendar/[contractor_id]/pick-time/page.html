@@ -1,0 +1,82 @@
+---
+title: Pick a Time
+---
+<div class="cal-card">
+    <div class="cal-steps">
+        <div class="cal-step-dot done">&#10003;</div>
+        <div class="cal-step-line done"></div>
+        <div class="cal-step-dot done">&#10003;</div>
+        <div class="cal-step-line done"></div>
+        <div class="cal-step-dot active">3</div>
+        <div class="cal-step-line"></div>
+        <div class="cal-step-dot">4</div>
+    </div>
+    <a href="/{{ .params.contractor_id }}/pick-date" class="cal-back" up-target=".cal-card">&larr; Back</a>
+    <h2 style="margin-bottom:0.25rem;font-size:1.125rem">Select a Time</h2>
+    <p id="time-date-label" style="color:var(--mz-color-gray-500);margin-bottom:1rem;font-size:0.875rem"></p>
+
+    <div class="cal-loading" id="slots-loading">Checking availability...</div>
+    <div class="cal-slots" id="time-slots"></div>
+</div>
+
+<script>
+(function() {
+    var contractorId = '{{ .params.contractor_id }}';
+    var selectedDate = '{{ .query.date }}';
+    var availabilityData = {{ .data.availability | trusted }};
+    var slots = (Array.isArray(availabilityData) ? availabilityData : []).filter(function(s) {
+        return s.user_id === contractorId && s.status === 'active';
+    });
+
+    document.getElementById('time-date-label').textContent = formatDate(selectedDate);
+
+    var parts = selectedDate.split('-');
+    var dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    var availDays = getAvailableDays(slots);
+    var daySlots = availDays[dateObj.getDay()] || [];
+
+    loadBookedTimes(contractorId, selectedDate).then(function(bookedTimes) {
+        document.getElementById('slots-loading').style.display = 'none';
+
+        var container = document.getElementById('time-slots');
+        if (daySlots.length === 0) {
+            var p = document.createElement('p');
+            p.style.cssText = 'grid-column:1/-1;text-align:center;color:var(--mz-color-gray-500);padding:1rem';
+            p.textContent = 'No available time slots for this date.';
+            container.appendChild(p);
+            return;
+        }
+
+        daySlots.forEach(function(slot) {
+            var startH = parseInt(slot.start_time.split(':')[0]);
+            var startM = parseInt(slot.start_time.split(':')[1]) || 0;
+            var endH = parseInt(slot.end_time.split(':')[0]);
+            var endM = parseInt(slot.end_time.split(':')[1]) || 0;
+            var startMin = startH * 60 + startM;
+            var endMin = endH * 60 + endM;
+
+            for (var m = startMin; m + 60 <= endMin; m += 60) {
+                var h = Math.floor(m / 60);
+                var mm = m % 60;
+                var timeStr = String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+                var endTimeStr = String(h + 1).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+                var isBooked = bookedTimes.indexOf(timeStr) >= 0;
+
+                if (isBooked) {
+                    var div = document.createElement('div');
+                    div.className = 'cal-slot booked';
+                    div.textContent = formatTime(h, mm);
+                    container.appendChild(div);
+                } else {
+                    var a = document.createElement('a');
+                    a.href = '/' + contractorId + '/book?date=' + selectedDate + '&time=' + timeStr + '&end=' + endTimeStr;
+                    a.className = 'cal-slot';
+                    a.setAttribute('up-target', '.cal-card');
+                    a.textContent = formatTime(h, mm);
+                    container.appendChild(a);
+                }
+            }
+        });
+    });
+})();
+</script>

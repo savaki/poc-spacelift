@@ -90,20 +90,6 @@ var availabilitySlots = [];
 var rSelectedDate = null;
 var rSelectedTime = null;
 var rCalYear, rCalMonth;
-var dayMap = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0 };
-function cleanDayOfWeek(val) { return (val || '').replace(/"/g, '').toLowerCase(); }
-
-function formatTime(h, m) {
-    var ampm = h >= 12 ? 'PM' : 'AM';
-    var hour = h % 12 || 12;
-    return hour + ':' + String(m).padStart(2, '0') + ' ' + ampm;
-}
-
-function formatDate(dateStr) {
-    var parts = dateStr.split('-');
-    var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-}
 
 // --- Reschedule flow ---
 function toggleReschedule() {
@@ -122,12 +108,7 @@ async function loadRescheduleAvailability() {
     rSelectedTime = null;
 
     try {
-        var resp = await fetch('/api/availability/list');
-        var data = await resp.json();
-        if (!Array.isArray(data)) data = [];
-        availabilitySlots = data.filter(function(s) {
-            return s.user_id === contractorId && s.status === 'active';
-        });
+        availabilitySlots = await loadContractorAvailability(contractorId);
         document.getElementById('reschedule-avail-loading').style.display = 'none';
         document.getElementById('reschedule-calendar').style.display = 'block';
         var now = new Date();
@@ -139,52 +120,40 @@ async function loadRescheduleAvailability() {
     }
 }
 
-function getAvailableDays() {
-    var days = {};
-    availabilitySlots.forEach(function(slot) {
-        var jsDay = dayMap[cleanDayOfWeek(slot.day_of_week)];
-        if (jsDay !== undefined) {
-            if (!days[jsDay]) days[jsDay] = [];
-            days[jsDay].push(slot);
-        }
-    });
-    return days;
-}
-
 function renderRCalendar() {
-    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    document.getElementById('r-cal-month-title').textContent = months[rCalMonth] + ' ' + rCalYear;
+    var container = document.getElementById('r-cal-days');
+    container.textContent = '';
+    var availDays = getAvailableDays(availabilitySlots);
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+
+    document.getElementById('r-cal-month-title').textContent = MONTH_NAMES[rCalMonth] + ' ' + rCalYear;
 
     var firstDay = new Date(rCalYear, rCalMonth, 1).getDay();
     var daysInMonth = new Date(rCalYear, rCalMonth + 1, 0).getDate();
-    var today = new Date(); today.setHours(0, 0, 0, 0);
-    var availDays = getAvailableDays();
-    var html = '';
 
-    for (var i = 0; i < firstDay; i++) html += '<div class="cal-day"></div>';
+    for (var i = 0; i < firstDay; i++) container.appendChild(document.createElement('div'));
 
     for (var d = 1; d <= daysInMonth; d++) {
         var date = new Date(rCalYear, rCalMonth, d);
-        var jsDay = date.getDay();
         var isPast = date < today;
-        var hasAvail = !!availDays[jsDay];
+        var hasAvail = !!availDays[date.getDay()];
         var isToday = date.getTime() === today.getTime();
         var dateStr = date.toISOString().slice(0, 10);
-        var isSelected = rSelectedDate === dateStr;
 
-        var cls = 'cal-day in-month';
-        if (isToday) cls += ' today';
-        if (isPast) cls += ' disabled';
-        else if (hasAvail) cls += ' available';
-        if (isSelected) cls += ' selected';
-
+        var el;
         if (!isPast && hasAvail) {
-            html += '<div class="' + cls + '" onclick="rSelectDate(\'' + dateStr + '\')">' + d + '</div>';
+            el = document.createElement('a');
+            el.href = '#';
+            el.className = 'cal-day in-month available' + (isToday ? ' today' : '') + (rSelectedDate === dateStr ? ' selected' : '');
+            el.setAttribute('data-date', dateStr);
+            el.addEventListener('click', function(e) { e.preventDefault(); rSelectDate(this.getAttribute('data-date')); });
         } else {
-            html += '<div class="' + cls + '">' + d + '</div>';
+            el = document.createElement('div');
+            el.className = 'cal-day in-month' + (isToday ? ' today' : '') + (isPast ? ' disabled' : '');
         }
+        el.textContent = d;
+        container.appendChild(el);
     }
-    document.getElementById('r-cal-days').innerHTML = html;
 }
 
 function rPrevMonth() { rCalMonth--; if (rCalMonth < 0) { rCalMonth = 11; rCalYear--; } renderRCalendar(); }
@@ -199,68 +168,50 @@ async function rSelectDate(dateStr) {
 
     var slotsEl = document.getElementById('r-time-slots');
     var loadingEl = document.getElementById('r-slots-loading');
-    slotsEl.innerHTML = '';
+    slotsEl.textContent = '';
     loadingEl.style.display = 'block';
-
     document.getElementById('r-time-date-label').textContent = formatDate(dateStr);
 
     var parts = dateStr.split('-');
     var dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    var jsDay = dateObj.getDay();
-    var availDays = getAvailableDays();
-    var daySlots = availDays[jsDay] || [];
-
-    // Load booked visits for conflict detection
-    var bookedVisits = [];
-    try {
-        var resp = await fetch('/api/visit/list');
-        var data = await resp.json();
-        if (!Array.isArray(data)) data = [];
-        bookedVisits = data.filter(function(v) {
-            return v.contractor_id === contractorId
-                && v.scheduled_date === dateStr
-                && v.status !== 'cancelled'
-                && v.status !== 'no_show'
-                && v.id !== visitId;
-        });
-    } catch (e) { /* continue without conflict data */ }
-
+    var daySlots = (getAvailableDays(availabilitySlots)[dateObj.getDay()] || []);
+    var bookedTimes = await loadBookedTimes(contractorId, dateStr, visitId);
     loadingEl.style.display = 'none';
 
-    var html = '';
+    if (daySlots.length === 0) {
+        var p = document.createElement('p');
+        p.style.cssText = 'grid-column:1/-1;text-align:center;color:var(--mz-color-gray-500);padding:1rem';
+        p.textContent = 'No available slots.';
+        slotsEl.appendChild(p);
+        return;
+    }
+
     daySlots.forEach(function(slot) {
-        var startH = parseInt(slot.start_time.split(':')[0]);
-        var startM = parseInt(slot.start_time.split(':')[1]) || 0;
-        var endH = parseInt(slot.end_time.split(':')[0]);
-        var endM = parseInt(slot.end_time.split(':')[1]) || 0;
-        var startMin = startH * 60 + startM;
-        var endMin = endH * 60 + endM;
+        var startMin = parseInt(slot.start_time.split(':')[0]) * 60 + (parseInt(slot.start_time.split(':')[1]) || 0);
+        var endMin = parseInt(slot.end_time.split(':')[0]) * 60 + (parseInt(slot.end_time.split(':')[1]) || 0);
 
         for (var m = startMin; m + 60 <= endMin; m += 60) {
-            var h = Math.floor(m / 60);
-            var mm = m % 60;
+            var h = Math.floor(m / 60), mm = m % 60;
             var timeStr = String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
-            var endTimeStr = String(h + 1).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
-            var isBooked = bookedVisits.some(function(v) { return v.start_time === timeStr; });
+            var endStr = String(h + 1).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+            var isBooked = bookedTimes.indexOf(timeStr) >= 0;
 
-            if (isBooked) {
-                html += '<div class="cal-slot booked">' + formatTime(h, mm) + '</div>';
-            } else {
-                html += '<div class="cal-slot" onclick="rSelectTime(\'' + timeStr + '\', \'' + endTimeStr + '\')">' + formatTime(h, mm) + '</div>';
+            var el = document.createElement('div');
+            el.className = 'cal-slot' + (isBooked ? ' booked' : '');
+            el.textContent = formatTime(h, mm);
+            if (!isBooked) {
+                el.setAttribute('data-start', timeStr);
+                el.setAttribute('data-end', endStr);
+                el.addEventListener('click', function() {
+                    rSelectedTime = { start: this.getAttribute('data-start'), end: this.getAttribute('data-end') };
+                    slotsEl.querySelectorAll('.cal-slot:not(.booked)').forEach(function(s) { s.classList.remove('selected'); });
+                    this.classList.add('selected');
+                    document.getElementById('reschedule-confirm').style.display = 'block';
+                });
             }
+            slotsEl.appendChild(el);
         }
     });
-
-    slotsEl.innerHTML = html || '<p style="grid-column:1/-1;text-align:center;color:var(--mz-color-gray-500);padding:1rem">No available slots.</p>';
-}
-
-function rSelectTime(startTime, endTime) {
-    rSelectedTime = { start: startTime, end: endTime };
-    document.querySelectorAll('#r-time-slots .cal-slot').forEach(function(el) {
-        el.classList.remove('selected');
-    });
-    event.target.classList.add('selected');
-    document.getElementById('reschedule-confirm').style.display = 'block';
 }
 
 async function confirmReschedule() {
@@ -281,7 +232,6 @@ async function confirmReschedule() {
             })
         });
         if (!resp.ok) throw new Error('Reschedule failed');
-        // Reload server-rendered page to show updated visit
         up.visit('/visit/' + visitToken);
     } catch (err) {
         errorEl.textContent = err.message || 'Failed to reschedule. Please try again.';

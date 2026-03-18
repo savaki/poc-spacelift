@@ -9,6 +9,19 @@ query list_visits {
   output: List<Object>
 }
 
+query list_visits_by_contractor {
+  args {
+    contractor_id: String
+  }
+  sql {
+    SELECT id, visit_token, project_id, contractor_id, homeowner_name,
+           scheduled_date, start_time, end_time, visit_type,
+           status, created_at
+    FROM visit WHERE contractor_id = @contractor_id ORDER BY created_at DESC
+  }
+  output: List<Object>
+}
+
 query get_visit {
   args {
     visit_id: String

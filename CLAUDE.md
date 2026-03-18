@@ -121,15 +121,40 @@ server-side via `{{ .data.record.name }}` is inherently safe against XSS.
 Avoid client-side `innerHTML` with user data. Use Unpoly for page transitions
 and form submissions to keep the server-rendered model without full page reloads.
 
-### Do NOT use client-side innerHTML for user data
+### Page Interaction: Unpoly + SSR (default pattern)
 
-Pages should render user data server-side via JQT templates, not client-side
-`innerHTML`. JQT auto-escaping prevents XSS by design. Use Unpoly for form
-submissions and page transitions to avoid full reloads while keeping
-server-rendered content.
+All page interactions must use **Unpoly with server-rendered pages**. This is
+the default — do not use client-side `fetch` + `innerHTML` to render content.
 
-If client-side JS is unavoidable (e.g., interactive calendar widget), use
-`textContent` or `createElement` — never `innerHTML` with user-supplied values.
+**Navigation between views**: Use `<a>` tags with `up-target` to swap fragments:
+```html
+<a href="/contractor/123/pick-date" up-target=".cal-card">Select a Date</a>
+<a href="/contractor/123/pick-date?year=2026&month=4" up-target=".cal-card">&rarr;</a>
+```
+
+**Form submissions**: Use standard `<form>` with `up-target` or `up-submit`:
+```html
+<form action="/api/visit/request_visit" method="POST" up-target=".cal-card">
+```
+
+**Programmatic navigation**: Use `up.visit()` or `up.render()`:
+```javascript
+up.visit('/visit/' + token + '?booked=1');
+```
+
+**Multi-step wizards**: Each step is a separate server-rendered page. Unpoly
+swaps the content container. State flows through URL params and query strings,
+not JS variables.
+
+**Never use**:
+- `innerHTML` with any data (user-supplied or otherwise)
+- Client-side `fetch` to load data for display (use co-located `route.grove`)
+- `onclick` handlers for navigation (use `<a>` with `up-target`)
+- `style.display` toggling to show/hide page sections (use separate pages)
+
+**When JS is required** (e.g., calendar grid with date math), use
+`createElement` + `textContent` to build DOM. Use `<a>` elements with
+`up-target` for all clickable actions so Unpoly handles navigation.
 
 ### Public-facing URLs
 
