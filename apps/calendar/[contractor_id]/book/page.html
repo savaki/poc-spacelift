@@ -82,7 +82,7 @@ document.getElementById('booking-form').addEventListener('submit', async functio
     var contractorId = '{{ .params.contractor_id }}';
     var selectedDate = '{{ .query.date }}';
     var startTime = '{{ .query.time }}';
-    var endTime = '{{ .query.end }}';
+    var endTime = '{{ .query.end_time }}';
 
     try {
         // 1. Create project
