@@ -1,0 +1,14 @@
+service mailgun v1 {
+    base_url: config.mailgun_base_url
+
+    credentials {
+        api_key: ApiKey
+    }
+
+    auth: basic { username: "api", password: credentials.api_key }
+
+    operation send_message {
+        method: "POST"
+        path: "/messages"
+    }
+}
