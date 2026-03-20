@@ -1,0 +1,32 @@
+<html>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:system-ui,sans-serif">
+<div style="max-width:560px;margin:0 auto;padding:32px 16px">
+<div style="background:#fff;border-radius:12px;padding:32px">
+    <h1 style="font-size:24px;font-weight:700;color:#18181b;margin:0 0 8px">New Visit Request</h1>
+    <p style="color:#71717a;font-size:14px">A homeowner has booked a visit</p>
+    <table style="width:100%;font-size:14px;margin:16px 0">
+        <tr>
+            <td style="padding:6px 0;color:#71717a">Homeowner</td>
+            <td style="font-weight:600">{{ .input.homeowner_name }}</td>
+        </tr>
+        <tr>
+            <td style="padding:6px 0;color:#71717a">Date</td>
+            <td style="font-weight:600">{{ .input.scheduled_date }}</td>
+        </tr>
+        <tr>
+            <td style="padding:6px 0;color:#71717a">Time</td>
+            <td style="font-weight:600">{{ .input.start_time }}</td>
+        </tr>
+        <tr>
+            <td style="padding:6px 0;color:#71717a">Address</td>
+            <td style="font-weight:600">{{ .input.location_street }}, {{ .input.location_city }}</td>
+        </tr>
+        <tr>
+            <td style="padding:6px 0;color:#71717a">Notes</td>
+            <td>{{ .input.homeowner_notes }}</td>
+        </tr>
+    </table>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,146 @@
+query list_recordings {
+  gsql {
+    SELECT id, project_id, session_id, status, audio_key, mp3_key,
+           transcript, error, duration_secs, created_at
+    FROM recording ORDER BY created_at DESC
+  }
+  output: List<Object>
+}
+
+query list_recordings_by_project {
+  args {
+    project_id: String
+  }
+  sql {
+    SELECT id, project_id, session_id, status, audio_key, mp3_key,
+           transcript, error, duration_secs, created_at
+    FROM recording WHERE project_id = @project_id ORDER BY created_at DESC
+  }
+  output: List<Object>
+}
+
+query get_recording {
+  args {
+    recording_id: String
+  }
+  sql {
+    SELECT id, project_id, session_id, status, audio_key, mp3_key,
+           transcript, error, duration_secs, created_at
+    FROM recording WHERE id = @recording_id
+  }
+  output: Object
+}
+
+/// An audio recording submitted by a homeowner describing renovation work.
+/// Recordings are transcribed and used to generate project scope summaries.
+record {
+  /// The project this recording belongs to.
+  project_id: String @searchable
+  /// Groups recordings from a single session.
+  session_id: String @searchable
+  /// Lifecycle: uploading → uploaded → processing → transcribed → failed
+  status: String = "uploading" @searchable
+  /// S3 key for the original uploaded audio.
+  audio_key: String = ""
+  /// S3 key for the converted MP3 file.
+  mp3_key: String = ""
+  /// Whisper transcription of the audio.
+  transcript: String = ""
+  /// Error message if processing failed.
+  error: String = ""
+  /// Duration of the audio in seconds.
+  duration_secs: Int = 0
+}
+
+/// Raised when a new recording is created.
+event recording_created {
+  project_id: String
+  session_id: String
+  status: String
+  audio_key: String
+}
+
+/// Raised when audio upload is complete and processing can begin.
+event recording_uploaded {
+  status: String
+  project_id: String
+  session_id: String
+  audio_key: String
+}
+
+/// Raised when transcription is complete.
+event recording_transcribed {
+  status: String
+  project_id: String
+  session_id: String
+  transcript: String
+  mp3_key: String
+  duration_secs: Int
+}
+
+/// Raised when processing fails at any stage.
+event recording_failed {
+  status: String
+  error: String
+}
+
+/// Creates a new recording in uploading status.
+@create
+action create_recording {
+  project_id: String
+  session_id: String = ""
+  audio_key: String = ""
+  apply {
+    emit recording_created {
+      project_id: params.project_id
+      session_id: params.session_id
+      status: "uploading"
+      audio_key: params.audio_key
+    }
+  }
+}
+
+/// Marks the recording as uploaded and ready for processing.
+action mark_uploaded {
+  project_id: String = ""
+  session_id: String = ""
+  audio_key: String = ""
+  apply {
+    emit recording_uploaded {
+      status: "uploaded"
+      project_id: params.project_id
+      session_id: params.session_id
+      audio_key: params.audio_key
+    }
+  }
+}
+
+/// Saves the transcript and MP3 key after successful processing.
+action save_transcript {
+  project_id: String = ""
+  session_id: String = ""
+  transcript: String
+  mp3_key: String = ""
+  duration_secs: Int = 0
+  apply {
+    emit recording_transcribed {
+      status: "transcribed"
+      project_id: params.project_id
+      session_id: params.session_id
+      transcript: params.transcript
+      mp3_key: params.mp3_key
+      duration_secs: params.duration_secs
+    }
+  }
+}
+
+/// Marks the recording as failed with an error message.
+action mark_failed {
+  error: String
+  apply {
+    emit recording_failed {
+      status: "failed"
+      error: params.error
+    }
+  }
+}

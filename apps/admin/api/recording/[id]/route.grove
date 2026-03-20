@@ -1,0 +1,9 @@
+route {
+  GET {
+    data record {
+      query recording.get_recording {
+        recording_id: input.params.id
+      }
+    }
+  }
+}

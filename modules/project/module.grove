@@ -2,7 +2,7 @@ query list_projects {
   gsql {
     SELECT id, status, project_type, homeowner_name, homeowner_email,
            address_street, address_city, address_state, address_zip,
-           budget_min, budget_max, consultant_id, created_at
+           budget_min, budget_max, consultant_id, scope_status, scope_generation, created_at
     FROM project ORDER BY created_at DESC
   }
   output: List<Object>
@@ -15,7 +15,8 @@ query get_project {
   sql {
     SELECT id, status, project_type, homeowner_name, homeowner_email, homeowner_phone,
            address_street, address_city, address_state, address_zip,
-           budget_min, budget_max, consultant_id, target_date, notes, created_at
+           budget_min, budget_max, consultant_id, target_date, notes,
+           scope_summary, scope_status, scope_generation, created_at
     FROM project WHERE id = @project_id
   }
   output: Object
@@ -53,6 +54,12 @@ record {
   target_date: Date?
   /// Internal notes about the project.
   notes: String = ""
+  /// JSON scope summary generated from audio transcriptions.
+  scope_summary: String = ""
+  /// Status of scope generation: none, generating, ready, failed.
+  scope_status: String = "none" @searchable
+  /// Increments each time the scope is regenerated.
+  scope_generation: Int = 0
 }
 
 /// Ensures the project type is one of the allowed renovation categories.
@@ -106,6 +113,13 @@ event project_completed {
 /// Raised when the project is administratively closed.
 event project_closed {
   status: String
+}
+
+/// Raised when the project scope summary is generated or updated.
+event scope_updated {
+  scope_summary: String
+  scope_status: String
+  scope_generation: Int
 }
 
 /// Creates a new home improvement project with the given scope and details.
@@ -201,6 +215,20 @@ action close_project {
   apply {
     emit project_closed {
       status: "closed"
+    }
+  }
+}
+
+/// Updates the project scope summary from audio transcription analysis.
+action update_scope {
+  scope_summary: String
+  scope_status: String = "ready"
+  scope_generation: Int = 1
+  apply {
+    emit scope_updated {
+      scope_summary: params.scope_summary
+      scope_status: params.scope_status
+      scope_generation: params.scope_generation
     }
   }
 }

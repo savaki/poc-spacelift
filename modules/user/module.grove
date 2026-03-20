@@ -1,6 +1,6 @@
 query list_users {
   gsql {
-    SELECT id, email, first_name, last_name, role, status, organization_id, created_at
+    SELECT id, email, first_name, last_name, role, status, organization_id, anonymous, created_at
     FROM "user" ORDER BY created_at DESC
   }
   output: List<Object>
@@ -11,7 +11,7 @@ query get_user {
     user_id: String
   }
   sql {
-    SELECT id, email, first_name, last_name, role, status, organization_id, phone, created_at
+    SELECT id, email, first_name, last_name, role, status, organization_id, phone, anonymous, created_at
     FROM "user" WHERE id = @user_id
   }
   output: Object
@@ -35,6 +35,8 @@ record {
   organization_id: String = "" @searchable
   /// Contact phone number.
   phone: String = ""
+  /// Whether this is an auto-created anonymous user (not yet signed in).
+  anonymous: Bool = false
 }
 
 /// The user's email address must not be blank.
@@ -44,7 +46,7 @@ validate email_not_empty {
 
 /// Role must be one of the three allowed platform roles.
 validate valid_role {
-  params.role == "admin" || params.role == "consultant" || params.role == "contractor"
+  params.role == "admin" || params.role == "consultant" || params.role == "contractor" || params.role == "homeowner"
 }
 
 /// Raised when a new user account is created.
@@ -56,6 +58,7 @@ event user_created {
   status: String
   organization_id: String
   phone: String
+  anonymous: Bool
 }
 
 /// Raised when a user updates their profile information.
@@ -93,6 +96,7 @@ action create_user {
       status: "active"
       organization_id: params.organization_id
       phone: params.phone
+      anonymous: false
     }
   }
 }
@@ -121,6 +125,24 @@ action activate_user {
   apply {
     emit user_activated {
       status: "active"
+    }
+  }
+}
+
+/// Creates an anonymous user for public-facing flows (e.g. homeowner audio upload).
+/// No email validation. Can be upgraded later when the user signs in.
+@create
+action create_anonymous_user {
+  apply {
+    emit user_created {
+      email: ""
+      first_name: ""
+      last_name: ""
+      role: "homeowner"
+      status: "active"
+      organization_id: ""
+      phone: ""
+      anonymous: true
     }
   }
 }

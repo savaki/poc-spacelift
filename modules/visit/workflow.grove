@@ -1,0 +1,138 @@
+/// Sends a booking confirmation email to the homeowner via Mailgun.
+/// NOTE: All emails are sent to matt@manzano.studio for this POC.
+activity send_homeowner_email v1 {
+    data email_body {
+        render templates.email.homeowner_confirmation {
+            homeowner_name: input.homeowner_name
+            homeowner_email: input.homeowner_email
+            scheduled_date: input.scheduled_date
+            start_time: input.start_time
+            visit_token: input.visit_token
+            location_street: input.location_street
+            location_city: input.location_city
+        }
+    }
+
+    data result {
+        fetch mailgun.send_message {
+            from: "Spacelift <bookings@mail.mzno.me>"
+            to: "matt@manzano.studio"
+            subject: "Your visit is scheduled for " + input.scheduled_date
+            html: email_body
+        } with {
+            timeout: 15s
+        }
+    }
+
+    apply(input: {
+        homeowner_name: String
+        homeowner_email: String
+        scheduled_date: String
+        start_time: String
+        visit_token: String
+        location_street: String
+        location_city: String
+    }) -> { sent: Bool } {
+        return { sent: true }
+    }
+
+    retry_policy {
+        max_attempts: 3
+        backoff: exponential 2s
+        retryable: [429, 500, 502, 503, 504]
+    }
+}
+
+/// Sends a new visit notification email to the contractor via Mailgun.
+/// NOTE: All emails are sent to matt@manzano.studio for this POC.
+activity send_contractor_email v1 {
+    data email_body {
+        render templates.email.contractor_notification {
+            homeowner_name: input.homeowner_name
+            scheduled_date: input.scheduled_date
+            start_time: input.start_time
+            location_street: input.location_street
+            location_city: input.location_city
+            homeowner_notes: input.homeowner_notes
+        }
+    }
+
+    data result {
+        fetch mailgun.send_message {
+            from: "Spacelift <bookings@mail.mzno.me>"
+            to: "matt@manzano.studio"
+            subject: "New visit request from " + input.homeowner_name
+            html: email_body
+        } with {
+            timeout: 15s
+        }
+    }
+
+    apply(input: {
+        homeowner_name: String
+        scheduled_date: String
+        start_time: String
+        location_street: String
+        location_city: String
+        homeowner_notes: String
+    }) -> { sent: Bool } {
+        return { sent: true }
+    }
+
+    retry_policy {
+        max_attempts: 3
+        backoff: exponential 2s
+        retryable: [429, 500, 502, 503, 504]
+    }
+}
+
+/// Orchestrates sending booking confirmation emails to both the homeowner
+/// and the contractor when a visit is requested.
+workflow send_booking_emails v1 {
+    input: {
+        homeowner_email: String
+        homeowner_name: String
+        scheduled_date: String
+        start_time: String
+        visit_token: String
+        location_street: String
+        location_city: String
+        homeowner_notes: String
+    }
+
+    node homeowner = send_homeowner_email v1
+    node contractor = send_contractor_email v1
+
+    edge input -> homeowner {
+        homeowner_name: input.homeowner_name
+        homeowner_email: input.homeowner_email
+        scheduled_date: input.scheduled_date
+        start_time: input.start_time
+        visit_token: input.visit_token
+        location_street: input.location_street
+        location_city: input.location_city
+    }
+
+    edge input -> contractor {
+        homeowner_name: input.homeowner_name
+        scheduled_date: input.scheduled_date
+        start_time: input.start_time
+        location_street: input.location_street
+        location_city: input.location_city
+        homeowner_notes: input.homeowner_notes
+    }
+}
+
+/// Listens for the visit_requested event and starts the email workflow.
+trigger on_visit_requested from visit.visit_requested {
+    start send_booking_emails v1 {
+        homeowner_email: event.homeowner_email
+        homeowner_name: event.homeowner_name
+        scheduled_date: event.scheduled_date
+        start_time: event.start_time
+        visit_token: event.visit_token
+        location_street: event.location_street
+        location_city: event.location_city
+        homeowner_notes: event.homeowner_notes
+    }
+}

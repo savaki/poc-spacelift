@@ -1,0 +1,12 @@
+template homeowner_confirmation {
+    format: html
+    input: {
+        homeowner_name: String
+        homeowner_email: String
+        scheduled_date: String
+        start_time: String
+        visit_token: String
+        location_street: String
+        location_city: String
+    }
+}

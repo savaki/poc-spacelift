@@ -15,4 +15,15 @@ route {
       }
     }
   }
+
+  POST update_scope {
+    data result {
+      invoke project.update_scope {
+        id: input.body.id,
+        scope_summary: input.body.scope_summary,
+        scope_status: input.body.scope_status,
+        scope_generation: input.body.scope_generation
+      }
+    }
+  }
 }
