@@ -1,0 +1,15 @@
+route {
+  auth public
+
+  POST save_transcript {
+    data result {
+      invoke recording.save_transcript {
+        project_id: input.body.project_id,
+        session_id: input.body.session_id,
+        transcript: input.body.transcript,
+        mp3_key: input.body.mp3_key,
+        duration_secs: input.body.duration_secs
+      }
+    }
+  }
+}

@@ -1,0 +1,205 @@
+/// Transcribes audio from the blob store using OpenAI Whisper.
+/// Reads the audio blob, sends it as multipart to the Whisper API,
+/// and returns the transcript text.
+activity transcribe_audio v1 {
+    data audio {
+        blob input.audio_key
+    }
+
+    data result {
+        fetch whisper.transcriptions {
+            model: "whisper-1"
+            file: audio
+            response_format: "json"
+        }
+    }
+
+    apply(input: {
+        audio_key: String
+    }) -> { transcript: String } {
+        return { transcript: result.body.text }
+    }
+
+    retry_policy {
+        max_attempts: 3
+        backoff: exponential 5s
+        retryable: [429, 500, 502, 503, 504]
+    }
+}
+
+/// Saves the transcript to the recording record.
+activity save_recording_transcript v1 {
+    data result {
+        invoke recording.save_transcript {
+            id: input.recording_id
+            project_id: input.project_id
+            session_id: input.session_id
+            transcript: input.transcript
+            mp3_key: input.audio_key
+        }
+    }
+
+    apply(input: {
+        recording_id: String
+        project_id: String
+        session_id: String
+        transcript: String
+        audio_key: String
+    }) -> { saved: Bool } {
+        return { saved: true }
+    }
+
+    retry_policy {
+        max_attempts: 3
+        backoff: exponential 2s
+        retryable: [429, 500, 502, 503, 504]
+    }
+}
+
+/// When audio is uploaded, transcribe it and save the transcript.
+workflow process_recording v1 {
+    input: {
+        recording_id: String
+        project_id: String
+        session_id: String
+        audio_key: String
+    }
+
+    node transcribe = transcribe_audio v1
+    node save = save_recording_transcript v1
+
+    edge input -> transcribe {
+        audio_key: input.audio_key
+    }
+
+    edge transcribe -> save {
+        recording_id: input.recording_id
+        project_id: input.project_id
+        session_id: input.session_id
+        transcript: transcribe.transcript
+        audio_key: input.audio_key
+    }
+}
+
+/// When a recording is uploaded, start the transcription workflow.
+trigger on_recording_uploaded from recording.recording_uploaded {
+    start process_recording v1 {
+        recording_id: event.meta.id
+        project_id: event.project_id
+        session_id: event.session_id
+        audio_key: event.audio_key
+    }
+}
+
+/// Analyzes audio transcripts and generates a structured project scope summary.
+agent scope_generator v1 {
+    model: "claude-sonnet-4-5-20250929"
+    instructions: "You are a professional construction estimator analyzing audio transcripts from property walkthroughs to create structured project scope summaries.
+
+Generate a JSON scope summary that organizes renovation work by category with budget ranges based on the provided transcripts.
+
+When you receive an existing summary along with new transcripts:
+- Keep all prior work unless new transcripts explicitly contradict it
+- Add new categories or tasks for new work areas
+- Update budgets to reflect combined scope
+- Ensure the summary reads as a unified whole
+
+Return valid JSON with this structure:
+{
+  \"project_summary\": \"Brief 2-3 sentence overview\",
+  \"overall_budget_min\": 1500000,
+  \"overall_budget_max\": 2500000,
+  \"scope_categories\": [
+    {
+      \"category\": \"Trade name (e.g. Painting, Electrical)\",
+      \"budget_min\": 300000,
+      \"budget_max\": 600000,
+      \"tasks\": [
+        {
+          \"task\": \"Outcome-only name\",
+          \"location\": \"Room or area\",
+          \"details\": \"How the work will be done\",
+          \"subtasks\": [\"Step 1\", \"Step 2\"],
+          \"materials\": [\"Material — Spec — Quantity\"],
+          \"cost_estimate\": 300000
+        }
+      ]
+    }
+  ],
+  \"cost_considerations\": [\"High-level cost driver (no prices)\"]
+}
+
+Rules:
+- All amounts in US cents (e.g. $15,000 = 1500000)
+- Task names describe only the outcome, not materials or specs
+- Categories are trade-based (Painting, Electrical, Flooring, Carpentry)
+- List only visible/finish materials, not rough materials
+- Include 5-7 cost considerations with no specific prices
+- Use friendly, homeowner-facing language
+- Return ONLY valid JSON"
+
+    output_mode: text
+    max_turns: 1
+    temperature: 0.3
+
+    input: {
+        transcripts: String
+        existing_summary: String
+    }
+    output: String
+}
+
+/// Saves the generated scope summary to the project record.
+activity save_scope v1 {
+    data result {
+        invoke project.update_scope {
+            id: input.project_id
+            scope_summary: input.scope_summary
+            scope_status: "ready"
+        }
+    }
+
+    apply(input: {
+        project_id: String
+        scope_summary: String
+    }) -> { saved: Bool } {
+        return { saved: true }
+    }
+
+    retry_policy {
+        max_attempts: 3
+        backoff: exponential 2s
+        retryable: [429, 500, 502, 503, 504]
+    }
+}
+
+/// Orchestrates scope generation: calls LLM agent, then saves result.
+workflow generate_project_scope v1 {
+    input: {
+        project_id: String
+        transcripts: String
+        existing_summary: String
+    }
+
+    node generate = agent scope_generator v1
+    node save = save_scope v1
+
+    edge input -> generate {
+        transcripts: input.transcripts
+        existing_summary: input.existing_summary
+    }
+
+    edge generate -> save {
+        project_id: input.project_id
+        scope_summary: generate.response
+    }
+}
+
+/// When a recording is transcribed, trigger scope generation for its project.
+trigger on_recording_transcribed from recording.recording_transcribed {
+    start generate_project_scope v1 {
+        project_id: event.project_id
+        transcripts: event.transcript
+        existing_summary: ""
+    }
+}

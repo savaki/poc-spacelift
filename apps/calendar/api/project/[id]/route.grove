@@ -1,0 +1,11 @@
+route {
+  auth public
+
+  GET {
+    data record {
+      query project.get_project {
+        project_id: input.params.id
+      }
+    }
+  }
+}

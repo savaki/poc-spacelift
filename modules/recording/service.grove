@@ -1,0 +1,14 @@
+service whisper v1 {
+    base_url: "https://api.openai.com"
+
+    credentials {
+        api_key: ApiKey
+    }
+
+    auth: bearer { token: credentials.api_key }
+
+    operation transcriptions {
+        method: "POST"
+        path: "/v1/audio/transcriptions"
+    }
+}

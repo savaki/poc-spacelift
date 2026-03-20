@@ -1,0 +1,14 @@
+---
+title: Project Scope
+---
+<div class="cal-card">
+    <a href="/scope/{{ .params.project_id }}" class="cal-back" up-target=".cal-card">&larr; Back</a>
+    <h2>Describe Your Project</h2>
+    <p style="margin: 0.5rem 0 1.5rem; font-size: 0.875rem; color: var(--mz-color-gray-500);">
+        Record audio describing the renovation work you need. Each recording adds detail to your project scope.
+    </p>
+
+    <div id="recorder" data-audio-recorder data-project-id="{{ .params.project_id }}"></div>
+
+    <div id="scope-viewer" data-scope-viewer data-project-id="{{ .params.project_id }}" style="margin-top: 1.5rem;"></div>
+</div>

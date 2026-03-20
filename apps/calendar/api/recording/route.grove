@@ -1,0 +1,43 @@
+route {
+  auth public
+
+  GET list {
+    data records {
+      query recording.list_recordings { }
+    }
+  }
+
+  POST create_recording {
+    data result {
+      invoke recording.create_recording {
+        project_id: input.body.project_id,
+        session_id: input.body.session_id,
+        audio_key: input.body.audio_key
+      }
+    }
+  }
+
+  POST mark_uploaded {
+    data result {
+      invoke recording.mark_uploaded {
+        id: input.body.id,
+        project_id: input.body.project_id,
+        session_id: input.body.session_id,
+        audio_key: input.body.audio_key
+      }
+    }
+  }
+
+  POST save_transcript {
+    data result {
+      invoke recording.save_transcript {
+        id: input.body.id,
+        project_id: input.body.project_id,
+        session_id: input.body.session_id,
+        transcript: input.body.transcript,
+        mp3_key: input.body.mp3_key,
+        duration_secs: input.body.duration_secs
+      }
+    }
+  }
+}

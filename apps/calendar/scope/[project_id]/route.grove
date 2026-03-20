@@ -1,0 +1,16 @@
+route {
+  auth public
+
+  GET {
+    data project {
+      query project.get_project {
+        project_id: input.params.project_id
+      }
+    }
+    data recordings {
+      query recording.list_recordings_by_project {
+        project_id: input.params.project_id
+      }
+    }
+  }
+}
