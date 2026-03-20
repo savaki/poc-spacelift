@@ -1,0 +1,11 @@
+template contractor_notification {
+    format: html
+    input: {
+        homeowner_name: String
+        scheduled_date: String
+        start_time: String
+        location_street: String
+        location_city: String
+        homeowner_notes: String
+    }
+}
