@@ -284,7 +284,9 @@ up.compiler('[data-scope-viewer]', function(el) {
         if (!summary) return;
 
         try {
-            var scope = JSON.parse(summary);
+            // Strip markdown fences if the LLM wrapped the JSON.
+            var cleaned = summary.replace(/^```json?\s*\n?/, '').replace(/\n?```\s*$/, '');
+            var scope = JSON.parse(cleaned);
             renderScopeJSON(scope);
         } catch (e) {
             var pre = document.createElement('pre');
