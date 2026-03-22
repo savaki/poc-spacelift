@@ -2,10 +2,12 @@
 /// Reads the audio blob, sends it as multipart to the Whisper API,
 /// and returns the transcript text.
 activity transcribe_audio v1 {
+    /// Load the audio file from blob storage
     data audio {
         blob input.audio_key
     }
 
+    /// Send audio to OpenAI Whisper for speech-to-text transcription
     data result {
         fetch whisper.transcriptions {
             model: "whisper-1"
@@ -29,6 +31,7 @@ activity transcribe_audio v1 {
 
 /// Saves the transcript to the recording record.
 activity save_recording_transcript v1 {
+    /// Persist the transcript and link the MP3 to the recording
     data result {
         invoke recording.save_transcript {
             id: input.recording_id
@@ -151,6 +154,7 @@ Rules:
 
 /// Saves the generated scope summary to the project record.
 activity save_scope v1 {
+    /// Write the scope JSON and mark status as ready
     data result {
         invoke project.update_scope {
             id: input.project_id

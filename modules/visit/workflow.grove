@@ -1,6 +1,7 @@
 /// Sends a booking confirmation email to the homeowner via Mailgun.
 /// NOTE: All emails are sent to matt@manzano.studio for this POC.
 activity send_homeowner_email v1 {
+    /// Render the homeowner confirmation email from the template
     data email_body {
         render templates.email.homeowner_confirmation {
             homeowner_name: input.homeowner_name
@@ -13,6 +14,7 @@ activity send_homeowner_email v1 {
         }
     }
 
+    /// Deliver the confirmation via Mailgun
     data result {
         fetch mailgun.send_message {
             from: "Spacelift <bookings@mail.mzno.me>"
@@ -46,6 +48,7 @@ activity send_homeowner_email v1 {
 /// Sends a new visit notification email to the contractor via Mailgun.
 /// NOTE: All emails are sent to matt@manzano.studio for this POC.
 activity send_contractor_email v1 {
+    /// Render the contractor notification email from the template
     data email_body {
         render templates.email.contractor_notification {
             homeowner_name: input.homeowner_name
@@ -57,6 +60,7 @@ activity send_contractor_email v1 {
         }
     }
 
+    /// Deliver the notification via Mailgun
     data result {
         fetch mailgun.send_message {
             from: "Spacelift <bookings@mail.mzno.me>"
