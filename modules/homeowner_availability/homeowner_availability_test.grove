@@ -995,16 +995,16 @@ test create_event_fields {
     expect ok
     assert events.len == 1
     assert events[0].name == "homeowner_availability_submitted"
-    assert events[0].data.project_id == "proj-24"
-    assert events[0].data.homeowner_name == "Event Test"
-    assert events[0].data.homeowner_email == "event@example.com"
-    assert events[0].data.homeowner_phone == "555-2400"
-    assert events[0].data.available_date == "2024-06-05"
-    assert events[0].data.start_time == "10:00"
-    assert events[0].data.end_time == "14:00"
-    assert events[0].data.status == "open"
-    assert events[0].data.visit_id == ""
-    assert events[0].data.notes == "Back gate is open"
+    assert events[0].payload.project_id == "proj-24"
+    assert events[0].payload.homeowner_name == "Event Test"
+    assert events[0].payload.homeowner_email == "event@example.com"
+    assert events[0].payload.homeowner_phone == "555-2400"
+    assert events[0].payload.available_date == "2024-06-05"
+    assert events[0].payload.start_time == "10:00"
+    assert events[0].payload.end_time == "14:00"
+    assert events[0].payload.status == "open"
+    assert events[0].payload.visit_id == ""
+    assert events[0].payload.notes == "Back gate is open"
   }
 }
 

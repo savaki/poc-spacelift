@@ -509,11 +509,11 @@ test create_event_fields {
     expect ok
     assert events.len == 1
     assert events[0].name == "availability_created"
-    assert events[0].data.user_id == "contractor-13"
-    assert events[0].data.organization_id == "org-13"
-    assert events[0].data.day_of_week == "friday"
-    assert events[0].data.start_time == "07:00"
-    assert events[0].data.end_time == "15:00"
-    assert events[0].data.status == "active"
+    assert events[0].payload.user_id == "contractor-13"
+    assert events[0].payload.organization_id == "org-13"
+    assert events[0].payload.day_of_week == "friday"
+    assert events[0].payload.start_time == "07:00"
+    assert events[0].payload.end_time == "15:00"
+    assert events[0].payload.status == "active"
   }
 }
