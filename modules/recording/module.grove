@@ -40,10 +40,16 @@ record {
   session_id: String @searchable
   /// Lifecycle: uploading → uploaded → processing → transcribed → failed
   status: String = "uploading" @searchable
-  /// S3 key for the original uploaded audio.
-  audio_key: String = ""
-  /// S3 key for the converted MP3 file.
-  mp3_key: String = ""
+  /// Original uploaded audio file.
+  audio_key: File {
+    content_types: ["audio/*"]
+    max_size: 100mb
+  }
+  /// Converted MP3 file for playback.
+  mp3_key: File {
+    content_types: ["audio/mpeg"]
+    max_size: 100mb
+  }
   /// Whisper transcription of the audio.
   transcript: String = ""
   /// Error message if processing failed.

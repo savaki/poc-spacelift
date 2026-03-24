@@ -1552,3 +1552,91 @@ test notes_update_on_completed_visit {
     assert record.contractor_notes == "Follow-up needed for plumbing"
   }
 }
+
+test "send booking emails happy path" {
+  workflow send_booking_emails v1
+
+  run {
+    input: {
+      homeowner_email: "jane@example.com",
+      homeowner_name: "Jane Smith",
+      scheduled_date: "2024-04-15",
+      start_time: "10:00",
+      visit_token: "tok-abc123",
+      location_street: "123 Oak Ave",
+      location_city: "Springfield",
+      homeowner_notes: "Please use the side entrance"
+    }
+    mock homeowner {
+      return {
+        sent: true
+      }
+    }
+    mock contractor {
+      return {
+        sent: true
+      }
+    }
+    expect ok
+    assert activities.len == 2
+    assert activities[0].input.homeowner_name == "Jane Smith"
+    assert activities[0].input.homeowner_email == "jane@example.com"
+    assert activities[0].input.scheduled_date == "2024-04-15"
+    assert activities[0].input.visit_token == "tok-abc123"
+    assert activities[1].input.homeowner_name == "Jane Smith"
+    assert activities[1].input.scheduled_date == "2024-04-15"
+    assert activities[1].input.homeowner_notes == "Please use the side entrance"
+  }
+}
+
+test "send booking emails homeowner failure" {
+  workflow send_booking_emails v1
+
+  run {
+    input: {
+      homeowner_email: "jane@example.com",
+      homeowner_name: "Jane Smith",
+      scheduled_date: "2024-04-15",
+      start_time: "10:00",
+      visit_token: "tok-abc456",
+      location_street: "456 Elm St",
+      location_city: "Shelbyville",
+      homeowner_notes: ""
+    }
+    mock homeowner {
+      fail UNAVAILABLE "Mailgun API is down"
+    }
+    mock contractor {
+      return {
+        sent: true
+      }
+    }
+    expect error
+  }
+}
+
+test "send booking emails contractor failure" {
+  workflow send_booking_emails v1
+
+  run {
+    input: {
+      homeowner_email: "bob@example.com",
+      homeowner_name: "Bob Jones",
+      scheduled_date: "2024-05-20",
+      start_time: "14:00",
+      visit_token: "tok-def789",
+      location_street: "789 Pine Rd",
+      location_city: "Capital City",
+      homeowner_notes: "Ring the doorbell twice"
+    }
+    mock homeowner {
+      return {
+        sent: true
+      }
+    }
+    mock contractor {
+      fail UNAVAILABLE "Mailgun API is down"
+    }
+    expect error
+  }
+}

@@ -1,0 +1,130 @@
+module recording_test
+
+test "process recording happy path" {
+  workflow process_recording v1
+
+  run {
+    input: {
+      recording_id: "rec-1",
+      project_id: "proj-1",
+      session_id: "sess-1",
+      audio_key: "uploads/rec-1.mp3"
+    }
+    mock transcribe {
+      return {
+        transcript: "The kitchen needs new cabinets and the bathroom tile should be replaced."
+      }
+    }
+    mock save {
+      return {
+        saved: true
+      }
+    }
+    expect ok
+    assert activities.len == 2
+    assert activities[0].name == "transcribe"
+    assert activities[1].name == "save"
+    assert activities[1].input.transcript == "The kitchen needs new cabinets and the bathroom tile should be replaced."
+    assert activities[1].input.recording_id == "rec-1"
+    assert activities[1].input.project_id == "proj-1"
+    assert activities[1].input.session_id == "sess-1"
+    assert activities[1].input.audio_key == "uploads/rec-1.mp3"
+  }
+}
+
+test "process recording transcription failure" {
+  workflow process_recording v1
+
+  run {
+    input: {
+      recording_id: "rec-2",
+      project_id: "proj-2",
+      session_id: "sess-2",
+      audio_key: "uploads/rec-2.mp3"
+    }
+    mock transcribe {
+      fail UNAVAILABLE "Whisper API is down"
+    }
+    mock save {
+      return {
+        saved: true
+      }
+    }
+    expect error
+  }
+}
+
+test "generate project scope happy path" {
+  workflow generate_project_scope v1
+
+  run {
+    input: {
+      project_id: "proj-1",
+      transcripts: "The kitchen needs new cabinets and countertops.",
+      existing_summary: ""
+    }
+    mock generate {
+      return {
+        response: "{\"project_summary\":\"Kitchen renovation\",\"overall_budget_min\":500000,\"overall_budget_max\":1000000,\"scope_categories\":[],\"cost_considerations\":[]}"
+      }
+    }
+    mock save {
+      return {
+        saved: true
+      }
+    }
+    expect ok
+    assert activities.len == 2
+    assert activities[0].name == "generate"
+    assert activities[0].input.transcripts == "The kitchen needs new cabinets and countertops."
+    assert activities[0].input.existing_summary == ""
+    assert activities[1].name == "save"
+    assert activities[1].input.project_id == "proj-1"
+  }
+}
+
+test "generate project scope with existing summary" {
+  workflow generate_project_scope v1
+
+  run {
+    input: {
+      project_id: "proj-3",
+      transcripts: "We also need to redo the bathroom flooring.",
+      existing_summary: "{\"project_summary\":\"Kitchen renovation\"}"
+    }
+    mock generate {
+      return {
+        response: "{\"project_summary\":\"Kitchen and bathroom renovation\",\"overall_budget_min\":800000,\"overall_budget_max\":1500000,\"scope_categories\":[],\"cost_considerations\":[]}"
+      }
+    }
+    mock save {
+      return {
+        saved: true
+      }
+    }
+    expect ok
+    assert activities[0].input.existing_summary == "{\"project_summary\":\"Kitchen renovation\"}"
+    assert activities[1].input.project_id == "proj-3"
+  }
+}
+
+test "generate project scope agent failure" {
+  workflow generate_project_scope v1
+
+  run {
+    input: {
+      project_id: "proj-4",
+      transcripts: "Some transcript text.",
+      existing_summary: ""
+    }
+    mock generate {
+      fail INTERNAL "LLM rate limit exceeded"
+    }
+    mock save {
+      return {
+        saved: true
+      }
+    }
+    expect error
+  }
+}

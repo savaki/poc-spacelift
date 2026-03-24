@@ -1,10 +1,10 @@
-/// Transcribes audio from the blob store using OpenAI Whisper.
-/// Reads the audio blob, sends it as multipart to the Whisper API,
+/// Transcribes audio from the file store using OpenAI Whisper.
+/// Reads the audio file, sends it as multipart to the Whisper API,
 /// and returns the transcript text.
 activity transcribe_audio v1 {
-    /// Load the audio file from blob storage
+    /// Load the audio file from file storage
     data audio {
-        blob input.audio_key
+        file input.audio_key
     }
 
     /// Send audio to OpenAI Whisper for speech-to-text transcription
